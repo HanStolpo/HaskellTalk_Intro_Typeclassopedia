@@ -57,14 +57,108 @@ Handré Stolp
 </div>
 <div id="begin-file" class="slide section level1">
 <h1>Begin file</h1>
-here is the start of the file
-<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Slides</span> <span class="kw">where</span></code></pre>
+<p>here is the start of the file</p>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">--{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span>
+<span class="ot">&gt;</span> <span class="co">--{-# LANGUAGE TypeFamilies #-}</span>
+<span class="ot">&gt;</span> <span class="co">--{-# LANGUAGE OverlappingInstances #-}</span>
+<span class="ot">&gt;</span> <span class="co">--{-# LANGUAGE FlexibleInstances #-}</span>
+<span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Slides</span> <span class="kw">where</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- import Data.Functor      -- imported by prelude</span>
+<span class="ot">&gt;</span> <span class="kw">import</span> Control.Applicative
+<span class="ot">&gt;</span> <span class="kw">import</span> Data.Monoid</code></pre>
+</div>
+<div id="functor" class="slide section level1">
+<h1>Functor</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="kw">where</span>
+<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
+</div>
+<div id="applicative" class="slide section level1">
+<h1>Applicative</h1>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Applicative</span> f <span class="kw">where</span>
+<span class="ot">  pure  ::</span> a <span class="ot">-&gt;</span> f a
+<span class="ot">  (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
 </div>
 <div id="main" class="slide section level1">
 <h1>Main</h1>
-Here is the main function
-<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; main ::</span> <span class="dt">IO</span> ()
-<span class="ot">&gt;</span> main <span class="fu">=</span> putStrLn <span class="st">&quot;Slides&quot;</span></code></pre>
+<p>Here is the main function</p>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Coord</span> a <span class="fu">=</span> <span class="dt">Coord</span> {<span class="ot">unCoord ::</span> (a,a)} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Coord</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> unCoord
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Coord</span>  <span class="kw">where</span>
+<span class="ot">&gt;</span>     fmap f (<span class="dt">Coord</span> (x,y)) <span class="fu">=</span> <span class="dt">Coord</span> (f x, f y)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Coord</span> <span class="kw">where</span>
+<span class="ot">&gt;</span>     pure a <span class="fu">=</span> <span class="dt">Coord</span> (a,a)
+<span class="ot">&gt;</span>     <span class="dt">Coord</span> (g, h) <span class="fu">&lt;*&gt;</span> <span class="dt">Coord</span> (x, y) <span class="fu">=</span> <span class="dt">Coord</span> (g x, h y)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">Additive</span> a <span class="kw">where</span>
+<span class="ot">&gt;     (|+|) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">&gt;</span>     <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|+|</span>
+<span class="ot">&gt;     (|-|) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">&gt;</span>     <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|-|</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Additive</span> (<span class="dt">Coord</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     a <span class="fu">|+|</span> b <span class="fu">=</span> (<span class="fu">+</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+<span class="ot">&gt;</span>     a <span class="fu">|-|</span> b <span class="fu">=</span> (<span class="fu">-</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- type family Element a</span>
+<span class="ot">&gt;</span> <span class="co">-- type instance Element (Coord a) = a</span>
+<span class="ot">&gt;</span> <span class="co">-- </span>
+<span class="ot">&gt;</span> <span class="co">-- class Scalable a where</span>
+<span class="ot">&gt;</span> <span class="co">--  (|/) :: a -&gt; Element a -&gt; a</span>
+<span class="ot">&gt;</span> <span class="co">--  infixl 7 |/</span>
+<span class="ot">&gt;</span> <span class="co">--  (|*) :: a -&gt; Element a -&gt; a</span>
+<span class="ot">&gt;</span> <span class="co">--  infixl 7 |*</span>
+<span class="ot">&gt;</span> <span class="co">--  (*|) ::  Element a -&gt; a -&gt; a</span>
+<span class="ot">&gt;</span> <span class="co">--  infixl 7 *|</span>
+<span class="ot">&gt;</span> <span class="co">-- </span>
+<span class="ot">&gt;</span> <span class="co">-- instance Floating a =&gt; Scalable (Coord a) where</span>
+<span class="ot">&gt;</span> <span class="co">--  c |/ s = (/s) &lt;$&gt; c</span>
+<span class="ot">&gt;</span> <span class="co">--  c |* s = (*s) &lt;$&gt; c</span>
+<span class="ot">&gt;</span> <span class="co">--  s *| c = (s*) &lt;$&gt; c</span>
+<span class="ot">&gt;</span> <span class="co">-- </span>
+<span class="ot">&gt;</span> <span class="co">-- instance Scalable (Coord Int) where</span>
+<span class="ot">&gt;</span> <span class="co">--  c |/ s = (`div`s) &lt;$&gt; c</span>
+<span class="ot">&gt;</span> <span class="co">--  c |* s = (*s) &lt;$&gt; c</span>
+<span class="ot">&gt;</span> <span class="co">--  s *| c = (s*) &lt;$&gt; c</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; coordLength ::</span> (<span class="dt">Real</span> a, <span class="dt">Num</span> a, <span class="dt">Floating</span> b) <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> b
+<span class="ot">&gt;</span> coordLength (<span class="dt">Coord</span> (x, y)) <span class="fu">=</span> sqrt <span class="fu">.</span> realToFrac <span class="fu">$</span> x <span class="fu">*</span> x <span class="fu">+</span> y <span class="fu">*</span> y
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Extents</span> a <span class="fu">=</span> <span class="dt">Extents</span> {<span class="ot">coordFromExtents ::</span> <span class="dt">Coord</span> a} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; extentsFromCoord ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Extents</span> a
+<span class="ot">&gt;</span> extentsFromCoord c <span class="fu">=</span> <span class="dt">Extents</span> <span class="fu">.</span> fmap abs <span class="fu">$</span> c
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Extents</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> coordFromExtents
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Bounds</span> a <span class="fu">=</span> <span class="dt">Bounds</span> {<span class="ot">boundsCentre ::</span> <span class="dt">Coord</span> a,<span class="ot"> boundsExtent ::</span> <span class="dt">Extents</span> a}  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Integral</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Bounds</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     mempty <span class="fu">=</span> <span class="dt">Bounds</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>)) (extentsFromCoord <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (<span class="dv">0</span>,<span class="dv">0</span>))
+<span class="ot">&gt;</span>     <span class="dt">Bounds</span> _ (<span class="dt">Extents</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>))) <span class="ot">`mappend`</span> r <span class="fu">=</span> r
+<span class="ot">&gt;</span>     l <span class="ot">`mappend`</span> <span class="dt">Bounds</span> _ (<span class="dt">Extents</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>))) <span class="fu">=</span> l
+<span class="ot">&gt;</span>     l <span class="ot">`mappend`</span> r <span class="fu">=</span> <span class="dt">Bounds</span> c <span class="fu">$</span> extentsFromCoord e
+<span class="ot">&gt;</span>         <span class="kw">where</span>
+<span class="ot">&gt;</span>             c <span class="fu">=</span> (<span class="ot">`div`</span><span class="dv">2</span>) <span class="fu">&lt;$&gt;</span> boundsCentre l <span class="fu">|+|</span> boundsCentre r
+<span class="ot">&gt;</span>             e <span class="fu">=</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> l) <span class="fu">|+|</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> r)
+<span class="ot">&gt;</span>     
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">CoordI</span> <span class="fu">=</span> <span class="dt">Coord</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">ExtentsI</span> <span class="fu">=</span> <span class="dt">Extents</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">BoundsI</span> <span class="fu">=</span> <span class="dt">Bounds</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- newtype Fill a = Fill {runFill :: CoordI -&gt; (Bounds, a)}</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; main ::</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> main <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     print <span class="fu">.</span> coordLength <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (<span class="dv">0</span>,<span class="dv">0</span>)
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;done&quot;</span></code></pre>
 </div>
 </body>
 </html>
