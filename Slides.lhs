@@ -101,12 +101,13 @@ pointInBounds b c = let
         cntr = boundsCentre b
         Coord (ex, ey) = coordFromExtents . boundsExtent $ b
         Coord (dx, dy) = c |-| cntr
-        ox = if dx < 0 then ex + dx else ex - dx
-        oy = if dy < 0 then ey + dy else ey - dy
+        -- ox = if dx < 0 then ex + dx else ex - dx
+        -- oy = if dy < 0 then ey + dy else ey - dy
+        msg = "b = " ++ show b ++ " c = " ++ show c ++ " o = " ++ show (dx, dy)
         in 
             if (abs dx < ex && abs dy < ey) 
-            then Just . Coord $ (ox, oy)
-            else Nothing 
+            then trace ("Just " ++ msg) Just . Coord $ (dx, dy)
+            else trace ("Nothing " ++ msg) Nothing 
 
 
 class Divisor a where divideBy' :: a -> a -> a
@@ -137,34 +138,72 @@ type BoundsI = Bounds Int
 coordI :: Int -> Int -> Coord Int
 coordI x y = Coord (x,y)
 
-newtype Fill c a = Fill {runFill :: Coord c -> (Bounds c, a)}
+data Fill c a = Fill  { queryFill  :: Coord c -> a
+                      , fillBounds :: Bounds c
+                      , moveFill   :: Coord c -> Fill c a
+                      }
 
-instance Functor (Fill c) where 
-    fmap g fl = Fill $ (\(a, b) -> (a, g b)) <$> runFill fl
+instance Functor (Fill c) where
+    fmap g Fill  { queryFill = q
+                 , fillBounds = b
+                 , moveFill = m
+                 } = Fill (fmap g q) b ((fmap . fmap) g m)
 
 instance (Monoid a, Monoid (Bounds c), Show c) => Monoid (Fill c a) where
-    mempty = Fill . const $ mempty
-    a `mappend` b = Fill (runFill a <> runFill b)
+    mempty = Fill (const mempty) mempty (const mempty)
+    a `mappend` b = Fill (queryFill a <> queryFill b) (fillBounds a <> fillBounds b) (moveFill a <> moveFill b)
 
-moveFill :: Num c => Coord c -> Fill c a -> Fill c a 
-moveFill c = Fill . (. (|-| c)) . runFill
+
 
 fillCircle :: (Real c, Divisor c, Monoid a, Show c) => a -> c -> Coord c -> Fill c a
-fillCircle val radius pos = Fill produce
+fillCircle val radius pos = Fill qry bnds mv
     where
-    produce crd | coordLength (crd |-| pos) <= realToFrac radius  = (bnds, val)
-                | otherwise                                       = (bnds, mempty)
+    qry crd | coordLength (crd |-| pos) <= realToFrac radius  = val
+            | otherwise                                       = mempty
     bnds = Bounds pos (Extents . Coord $ (radius, radius))
+    mv = fillCircle val radius . (pos |+|) 
 
 fillRectangle :: (Real c, Divisor c, Monoid a, Show c) => a -> c -> c -> Coord c -> Fill c a
-fillRectangle val w h pos = Fill produce
+fillRectangle val w h pos = Fill qry bnds mv
     where
-    produce crd | let (x, y) = unCoord $ abs <$> (crd |-| pos) 
-                  in x <= halfW && y <= halfH           = (bnds, val)
-                | otherwise                             = (bnds, mempty)
+    qry crd | let (x, y) = unCoord $ abs <$> (crd |-| pos) 
+                  in x <= halfW && y <= halfH       = val
+            | otherwise                             = mempty
     halfW = w `divideBy'` 2
     halfH = h `divideBy'` 2
     bnds = Bounds pos (Extents . Coord $ (halfW, halfH))
+    mv = fillRectangle val w h . (pos |+|) 
+
+
+
+-- newtype Fill c a = Fill {runFill :: Coord c -> (Bounds c, a)}
+-- 
+-- instance Functor (Fill c) where 
+--     fmap g fl = Fill $ (\(a, b) -> (a, g b)) <$> runFill fl
+-- 
+-- instance (Monoid a, Monoid (Bounds c), Show c) => Monoid (Fill c a) where
+--     mempty = Fill . const $ mempty
+--     a `mappend` b = Fill (runFill a <> runFill b)
+-- 
+-- moveFill :: Num c => Coord c -> Fill c a -> Fill c a 
+-- moveFill c = Fill . (. (|-| c)) . runFill
+-- 
+-- fillCircle :: (Real c, Divisor c, Monoid a, Show c) => a -> c -> Coord c -> Fill c a
+-- fillCircle val radius pos = Fill produce
+--     where
+--     produce crd | coordLength (crd |-| pos) <= realToFrac radius  = (bnds, val)
+--                 | otherwise                                       = (bnds, mempty)
+--     bnds = Bounds pos (Extents . Coord $ (radius, radius))
+-- 
+-- fillRectangle :: (Real c, Divisor c, Monoid a, Show c) => a -> c -> c -> Coord c -> Fill c a
+-- fillRectangle val w h pos = Fill produce
+--     where
+--     produce crd | let (x, y) = unCoord $ abs <$> (crd |-| pos) 
+--                   in x <= halfW && y <= halfH           = (bnds, val)
+--                 | otherwise                             = (bnds, mempty)
+--     halfW = w `divideBy'` 2
+--     halfH = h `divideBy'` 2
+--     bnds = Bounds pos (Extents . Coord $ (halfW, halfH))
 
 class ProduceChar a where produceChar :: a -> Char
 instance ProduceChar Char where 
@@ -180,28 +219,28 @@ drawFillMatrix :: ProduceChar a => Int -> Int -> Fill Int a -> IO ()
 drawFillMatrix cs ls fl = putStrLn $ ios cs2 ls
     where
         cs2      = cs * 2
-        flToChar = runFill . fmap produceChar $ fl
+        flToChar = queryFill . fmap produceChar $ fl
         ios 0 0  = []
         ios 0 l  = '\n' : ios cs2 (l-1)
-        ios c l  = (snd . flToChar $ Coord (cs - c `div` 2, ls - l)) : ios (c-1) l
+        ios c l  = (flToChar $ Coord (cs - c `div` 2, ls - l)) : ios (c-1) l
 
 lastChar :: Char -> Last Char
 lastChar = Last . Just
 
 
 myPicture :: IO ()
-myPicture = drawFillMatrix 40 40 
-            (
-               fillCircle    (lastChar 'X') 11  (coordI 15 15)
-            <> fillCircle    (lastChar '#') 7   (coordI 15 15)
-            <> fillRectangle (lastChar '$') 6 6 (coordI 15 15)
-            <> fillCircle    (lastChar ' ') 2   (coordI 15 15)
+myPicture = drawFillMatrix 40 40 (border <> moveFill image (coordI 5 5))
+    where
+        border =  fillRectangle (lastChar '+') 1 1 (coordI 0 0)
+               <> fillRectangle (lastChar '+') 1 1 (coordI 40 40)
+               <> fillRectangle (lastChar '+') 1 1 (coordI 40 0)
+               <> fillRectangle (lastChar '+') 1 1 (coordI 0 40)
 
-            <> fillRectangle (lastChar '+') 1 1 (coordI 0 0)
-            <> fillRectangle (lastChar '+') 1 1 (coordI 40 40)
-            <> fillRectangle (lastChar '+') 1 1 (coordI 40 0)
-            <> fillRectangle (lastChar '+') 1 1 (coordI 0 40)
-            )
+        image =  fillCircle    (lastChar 'X') 11  (coordI 15 15)
+              <> fillCircle    (lastChar '#') 7   (coordI 15 15)
+              <> fillRectangle (lastChar '$') 6 6 (coordI 15 15)
+              <> fillCircle    (lastChar ' ') 2   (coordI 15 15)
+
 
 data ShipType = Cruiser | Destroyer
 instance ProduceChar ShipType where
@@ -233,12 +272,6 @@ myGameBoard = drawFillMatrix 40 40 (  cruiser ShipHorizontal (coordI 8 8)
                                    )
 
 
-newtype Max a = Max {unMax :: Maybe a}
-instance Ord a => Monoid (Max a) where
-   mempty = Max Nothing
-   Max Nothing `mappend` r = r
-   l `mappend` Max Nothing  = l
-   Max (Just l) `mappend` Max (Just r)  = Max . Just . max l $ r
 
 layoutBoard :: Int -> Int -> [Fill Int (Last ShipType)] -> [Fill Int (Last ShipType)]
 layoutBoard _ _ [] = []
@@ -246,53 +279,56 @@ layoutBoard w h ships = ships'
     where
         ships' = foldl findPlace [] shipsInBnds
         -- ships' = shipsInBnds
+        -- ships' = ships
         shipsInBnds = map toBnds ships
-        corners = [coordI x y | x <- [0,w], y <- [0,h]]
+
         toBnds s = let 
-                    (bnds, _) = runFill s (coordI 0 0)
+                    bnds  = fillBounds s 
                     Coord (cx, cy) = boundsCentre bnds
-                    in case (fmap . fmap $ unMax) 
-                             .  mconcat 
-                             .  map (fmap . fmap $ Max . Just) 
-                             .  map (pointInBounds bnds) 
-                             $ corners of
-                        Nothing -> s
-                        Just (Coord (Just dx, Just dy))  -> let
-                                    ox = if cx >= w `div` 2 then dx else -dx
-                                    oy = if cy >= h `div` 2 then dy else -dy
-                                    in moveFill (coordI ox oy) s
+                    Coord (ex, ey) = coordFromExtents . boundsExtent $ bnds
+                    dx = if cx < ex then ex - cx else (if cx + ex > w then w - cx - ex  else 0)
+                    dy = if cy < ey then ey - cy else (if cy + ey > h then h - cy - ey  else 0)
+                    in moveFill s (coordI dx dy)
+
         findPlace [] n = [n]
         findPlace ps n = ps <> [offset (mconcat ps) n (coordI 0 0) 0]
+
         offset chk n o m = 
                          let 
-                         n' = if m >= 2 * w * h then error "fails" else moveFill o n
-                         (bnds, _) = runFill n' (coordI 0 0)
+                         n' = if m >= 2 * w * h then error "fails" else moveFill n o 
+                         bnds = fillBounds n'
                          Coord (cx, cy) = boundsCentre bnds
                          Coord (ex, ey) = coordFromExtents . boundsExtent $ bnds
                          cs = [coordI x y | x <- [(cx - ex) .. (cx + ex)], y <- [(cy - ey) .. (cy + ey)]]
-                         in if noCol chk n' cs 
+                         in if isOk chk n' cs 
                             then n'
                             else offset chk n (incOff o) (m+1)
-        noCol chk n cs =  not . getAny . mconcat . map (Any . col chk n) $ cs
+
+        isOk chk n cs = let 
+                        bnds  = fillBounds n
+                        Coord (cx, cy) = boundsCentre bnds
+                        Coord (ex, ey) = coordFromExtents . boundsExtent $ bnds
+                        xOk = cx >= ex && cx + ex <= w
+                        yOk = cy >= ey && cy + ey <= h
+                        in xOk && yOk && (not . getAny . mconcat . map (Any . col chk n) $ cs)
+
         col chk n c = let 
-                         a = getLast . snd . runFill chk $ c
-                         b = getLast . snd . runFill n $ c
-                         bndsa = fst . runFill chk $ c
-                         bndsb = fst . runFill n $ c
+                         a = getLast . queryFill chk $ c
+                         b = getLast . queryFill n $ c
                          in case (a,b) of
                             (Just _, Just _) -> True
-                            _ -> False
-        inBnds bnds =  not . isJust . getLast . mconcat . map (Last . pointInBounds bnds) $ corners
+                            _                -> False
+
         incOff (Coord (x,y)) | x >= w && y >= h = Coord (0, 0)
                              | x >= w           = Coord (0, y + 1)
                              | otherwise        = Coord (x + 1, y)
 
 pickShips :: [Fill Int (Last ShipType)]
 pickShips = getZipList  
-            $   ZipList (replicate 1 destroyer <> replicate 2 cruiser) 
-            <*> ZipList (cycle [ShipVertical, ShipVertical, ShipVertical])
-            -- <*> ZipList (cycle [coordI 0 0])
-             <*> ZipList (getZipList $ ZipList (cycle [coordI]) <*> ZipList [(x * 0 + 20)| x <- [0..5]] <*> ZipList [(y * 0 + 20)| y <- [0..5]])
+            $   ZipList (replicate 3 destroyer <> replicate 2 cruiser) 
+            <*> ZipList (cycle [ShipVertical, ShipHorizontal])
+            <*> ZipList (cycle [coordI 0 0])
+            -- <*> ZipList (getZipList $ ZipList (cycle [coordI]) <*> ZipList [(x * 0 + 20)| x <- [0..5]] <*> ZipList [(y * 0 + 20)| y <- [0..5]])
 
 myGameBoard2 :: IO ()
 myGameBoard2 = drawFillMatrix 40 40 . mconcat $ (layoutBoard 40 40 pickShips)
