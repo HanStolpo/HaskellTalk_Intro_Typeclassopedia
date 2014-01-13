@@ -29,7 +29,9 @@ import Control.Applicative
 import Control.Monad
 import Data.Monoid
 import Data.Maybe
+import Data.Char
 import Debug.Trace
+import System.Random
 
 \end{code}
 
@@ -247,7 +249,7 @@ instance ProduceChar ShipType where
     produceChar Cruiser = 'C'
     produceChar Destroyer = 'D'
 
-data ShipOrientation = ShipVertical | ShipHorizontal deriving (Show, Eq, Ord)
+data ShipOrientation = ShipVertical | ShipHorizontal deriving (Show, Eq, Ord, Bounded)
 data GameState = GameState -- {} deriving (Show, Eq, Ord)
 
 cruiser :: ShipOrientation -> CoordI -> Fill Int (Last ShipType)
@@ -338,13 +340,83 @@ myGameBoard2 = drawFillMatrix 40 40 . mconcat $ (layoutBoard 40 40 pickShips)
 --                                                                      , destroyer ShipVertical (coordI 0 0)
 --                                                                      , destroyer ShipVertical (coordI 40 0)])
 --
+
+randomBoard :: StdGen -> (StdGen, [Fill Int (Last ShipType)])
+randomBoard gen = 
+    let ship = ZipList . map (\a -> if a == 0 then destroyer else cruiser) . randomRs (0 :: Int, 1 :: Int) $ gen
+        orient = ZipList . map (\a -> if a == 0 then ShipVertical else ShipHorizontal) . randomRs (0 :: Int, 1 :: Int) $ gen
+        cxs = ZipList . randomRs (0, 40) $ gen
+        cys = ZipList . randomRs (0, 40) $ gen
+    in (mkStdGen . fst . random $ gen, layoutBoard 40 40 . take 5 . getZipList $ ship <*> orient <*> (coordI <$> cxs <*> cys))
+       
+data Game = Game { ships     :: [Fill Int (Last ShipType)]
+                 , board     :: Fill Int (Last Char)
+                 }
+
+shipToBrd :: Fill Int (Last ShipType) -> Fill Int (Last Char)
+shipToBrd s = Last . (fmap produceChar) . getLast <$> s
+
+drawBrd :: Fill Int (Last Char) -> IO ()
+drawBrd = drawFillMatrix 40 40  
+
+playNewGame :: StdGen -> IO ()
+playNewGame gen = let 
+                  (gen', ships) = randomBoard gen
+                  border = mconcat $ map (fillRectangle (lastChar '+') 1 1) (coordI <$> [x | x <- [0,40]] <*> [y | y <- [0,40]]) 
+                  in playGame gen' (Game ships border)
+
+wonGame :: StdGen -> IO () 
+wonGame gen = do
+    putStrLn "You won the game. Play another ? 'y'/'n'"
+    t <- getLine
+    case filter (not . isSpace) t of
+        'y' : _ -> playNewGame gen
+        'Y' : _ -> playNewGame gen
+        'n' : _ -> return ()
+        'N' : _ -> return ()
+        _       -> wonGame gen
+
+cheatGame :: StdGen -> Game -> IO ()
+cheatGame gen g = drawBrd (board g <> (mconcat . map shipToBrd . ships $ g)) >> playGame gen g
+
+takeShot :: String -> StdGen -> Game -> IO ()
+takeShot t gen g = let 
+    r : c : _ = map (read) (words t)
+    b = board g <> fillRectangle (lastChar 'X') 1 1 (coordI r c) <> (mconcat . map shipToBrd $ hit)
+    hit = filter (isJust . getLast . (\q -> q (coordI r c)) . queryFill) (ships g)
+    miss = filter (not . isJust . getLast . (\q -> q (coordI r c)) . queryFill) (ships g)
+    in playGame gen (Game miss b)
+
+playGame :: StdGen -> Game -> IO ()
+playGame gen g = if win g then wonGame gen else do 
+    drawBrd . board $ g    
+    putStrLn "Guess r c / Cheat 'c' / New Game 'n' / Quit 'q'"
+    t <- getLine
+    case filter (not . isSpace) t of
+        'c' : _ -> cheatGame gen g
+        'C' : _ -> cheatGame gen g
+        'n' : _ -> playNewGame gen
+        'N' : _ -> playNewGame gen
+        'Q' : _ -> return ()
+        'q' : _ -> return ()
+        _       -> takeShot t gen g
+    where 
+       win (Game [] _) = True
+       win _ = False
+    
+
 main :: IO ()
 main = do
     -- putStrLn "myPicture"
     -- myPicture
     -- putStrLn "myDone"
     -- myGameBoard
-    myGameBoard2
-    print . coordLength . Coord $ (0,0)
-    putStrLn "done"
+    -- myGameBoard2
+    gen0 <- getStdGen
+    -- let (gen1, b1) = randomBoard gen0
+    -- drawFillMatrix 40 40 . mconcat $ b1
+    -- let (gen2, b2) = randomBoard gen1
+    -- drawFillMatrix 40 40 . mconcat $ b2
+    playNewGame gen0
+    return ()
 \end{code}
