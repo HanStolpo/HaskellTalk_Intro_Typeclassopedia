@@ -41,6 +41,15 @@ import System.Random
 
 \end{code}
 
+Typeclassopdedia Diagram
+===========
+* The following is verbatim from <http://www.haskell.org/haskellwiki/Typeclassopedia>
+![Diagram of Typeclassopedia](Typeclassopedia-diagram.png)
+* Solid arrows point from the general to the specific; that is, if there is an arrow from Foo to Bar it means that every Bar is (or should be, or can be made into) a Foo.
+* Dotted arrows indicate some other sort of relationship.
+* Monad and ArrowApply are equivalent.
+* Semigroup, Apply and Comonad are greyed out since they are not actually (yet?) in the standard Haskell libraries 
+
 Functor
 ===========
 
@@ -270,59 +279,100 @@ instance (Monoid a, Monoid (Bounds c)) => Monoid (Fill c a) where
 
 Filling Primitives
 ===================
+* Two primitives, a circle and a rectangle
+* Both primitives require `(Real c, Divisor c, Monoid a)`
+    * that the coordinate element type be real and divisable (for `Monoid` instance of bounds)
+    * and that `Monoid` instance exists for result value of the fill
+* Circle takes some value a radius and a position and produces a value when the coordinate is within the radius
+* Rectangle takes some value a width, height and a position and produces a value when the coordinate is within the bounds
 
 \begin{code}
-fillCircle :: (Real c, Divisor c, Monoid a, Show c) => a -> c -> Coord c -> Fill c a
+fillCircle :: (Real c, Divisor c, Monoid a) => a -> c -> Coord c -> Fill c a
 fillCircle val radius pos = Fill qry bnds mv
     where
+    -- When the coordinate is within the radius distance from the centre produce
     qry crd | coordLength (crd |-| pos) <= realToFrac radius  = val
             | otherwise                                       = mempty
+    -- The bounds is a square centred around the position
     bnds = Bounds pos (Extents . Coord $ (radius, radius))
-    mv = fillCircle val radius . (pos |+|) 
+    -- Moving it construct circle with new centre
+    mv pos' = fillCircle val radius (pos |+| pos') 
 
-fillRectangle :: (Real c, Divisor c, Monoid a, Show c) => a -> c -> c -> Coord c -> Fill c a
+fillRectangle :: (Real c, Divisor c, Monoid a) => a -> c -> c -> Coord c -> Fill c a
 fillRectangle val w h pos = Fill qry bnds mv
     where
+    -- When the coordinate is within bounds of the rectangle produce
     qry crd | let (x, y) = unCoord $ abs <$> (crd |-| pos) 
                   in x <= halfW && y <= halfH       = val
             | otherwise                             = mempty
     halfW = w `divideBy'` 2
     halfH = h `divideBy'` 2
+    -- the rectangle is its bounds
     bnds = Bounds pos (Extents . Coord $ (halfW, halfH))
-    mv = fillRectangle val w h . (pos |+|) 
+    -- Moving it constructs a new rectangle centred on the new position
+    mv pos' = fillRectangle val w h (pos |+| pos') 
 
 \end{code}
 
 Drawing ASCII
 ===================
+* We can draw to the text buffer any `Fill` for which the produced value can map to a character
+* We embody it through the `ProduceChar` type class
+* We add convenience instances for 
+    * `Char` 
+    * Any `Maybe` type for which `a` embodies `ProduceChar`
+    * Any `Last` type for which `a` embodies `ProduceChar`
+* `Last` is a `newtype` wrapper around `Maybe` giving a `Monoid` instance taking the last produced value if any.
+* Since we are going to use `Last Char` a lot we add a helper for it
 
 \begin{code}
-class ProduceChar a where produceChar :: a -> Char
+class ProduceChar a where produceChar :: a -> Char -- map some value to a Char
+
 instance ProduceChar Char where 
-    produceChar = id
+    produceChar = id    -- always produces itself (hence id)
+
 instance ProduceChar a => ProduceChar (Maybe a) where
-    produceChar Nothing   = ' '
-    produceChar (Just a) = produceChar a
+    produceChar Nothing   = ' '             -- when nothing produce space
+    produceChar (Just a) = produceChar a    -- when something produce the related Char
+
 instance ProduceChar a => ProduceChar (Last a) where 
     produceChar = produceChar . getLast
-
-
-drawFillMatrix :: ProduceChar a => Int -> Int -> Fill Int a -> IO ()
-drawFillMatrix cs ls fl = putStrLn $ ios cs2 ls
-    where
-        cs2      = cs * 2
-        flToChar = queryFill . fmap produceChar $ fl
-        ios 0 0  = []
-        ios 0 l  = '\n' : ios cs2 (l-1)
-        ios c l  = (flToChar $ Coord (cs - c `div` 2, ls - l)) : ios (c-1) l
 
 lastChar :: Char -> Last Char
 lastChar = Last . Just
 \end{code}
 
+-----
+
+* We then draw a matrix of character to standard out by querying each character position for the produced char
+* It takes a width, a height and some `Fill` to say how the matrix should be filled
+* It draws 2 characters per column to get a more square looking picture
+* Notice that to turn a fill into something that produces characters we just `fmap` the function `produceChar` over the `Fill`
+
+\begin{code}
+drawFillMatrix :: ProduceChar a => Int -> Int -> Fill Int a -> IO ()
+drawFillMatrix cs ls fl = putStrLn $ ios cs2 ls
+    where
+        cs2      = cs * 2
+        -- we map produceChar over the result of the query
+        flToChar = queryFill . fmap produceChar $ fl    
+        ios 0 0  = []
+        -- end of each line we add a new line
+        ios 0 l  = '\n' : ios cs2 (l-1)
+        -- we iterate over the coordinates in our matrix
+        ios c l  = (flToChar $ Coord (cs - c `div` 2, ls - l)) : ios (c-1) l
+
+\end{code}
+
 
 Example Picture
 ===================
+* Here is an example picture being drawn
+* It draws `'+'` in the corners of the character matrix
+* Then draws the layering of a circle of `'X'` then `'#'`, then rectangle of `'$'` and finally a circle of `' '`
+* The whole circle is also move 5 spaces left and down
+* Notice that we layer the `Fill` values using the `Monoid` append operator `<>` 
+    * The result is one `Fill` that maps different coordinates to different characters
 
 \begin{code}
 myPicture :: IO ()
@@ -339,18 +389,58 @@ myPicture = drawFillMatrix 40 40 (border <> moveFill image (coordI 5 5))
               <> fillCircle    (lastChar ' ') 2   (coordI 15 15)
 \end{code}
 
-Battle ship
+-----
+
+![Example ASCII image](ExampleImage.png)
+
+
+Battleship
 ===================
+* For our battle ship / mine sweeper game 
+* We are going to define areas with ships in them
+* The user must fire shots at specific coordinates
+* When he hits a ship it gets revealed
+* When he gets them all he wins
+* Two ship types destroyers and cruisers
+* Destroyers drawn as 'D'
+* Cruiser drawn as 'C'
+* Guesses drawn as 'X'
+* '+' Drawn in the corners of the map
+
+----
+
+
+![Example battleship board](ExampleBattleShipBoard.PNG)
+
+Defining ships
+===================
+* A ship can be either a `Cruiser` or a `Destroyer`
+* `Cruiser` is drawn as the character 'C'
+* `Destroyer` is drawn as the character 'D'
+* Ships can be oriented `ShipVertical` or `ShipHorizontal`
 
 \begin{code}
+-- Type of ship
 data ShipType = Cruiser | Destroyer
+
+-- what character is produced by the ship type
 instance ProduceChar ShipType where
     produceChar Cruiser = 'C'
     produceChar Destroyer = 'D'
 
+-- How is the ship oriented on the board
 data ShipOrientation = ShipVertical | ShipHorizontal deriving (Show, Eq, Ord, Bounded)
-data GameState = GameState -- {} deriving (Show, Eq, Ord)
+\end{code}
 
+-------
+
+* A `cruiser` is a square with a 'circle' at the one end (looks like an arrow)
+* A `destroyer` is a thinner square with 'circle' at either ends
+* Notice that we define the areas covered by ships using the `Monoid` append operator `<>` over `Fill` areas
+* The resultant `Fill` types produce respective `ShipType` values for the areas where they are defined
+
+\begin{code}
+-- Make a cruiser ship given an orientation and a centre
 cruiser :: ShipOrientation -> CoordI -> Fill Int (Last ShipType)
 cruiser o pos = case o of
     ShipVertical    -> fillRectangle t 2 3 pos <> fillCircle t 2 (pos |-| coordI 0 3)
@@ -358,20 +448,36 @@ cruiser o pos = case o of
     where
         t = Last . Just $ Cruiser
 
+-- Make a destroyer ship given an orientation and a centre
 destroyer :: ShipOrientation -> CoordI -> Fill Int (Last ShipType)
 destroyer o pos = case o of
-    ShipVertical    -> fillRectangle t 1 2 pos <> fillCircle t 2 (pos |-| coordI 0 3) <> fillCircle t 2 (pos |+| coordI 0 3)
-    ShipHorizontal  -> fillRectangle t 2 1 pos <> fillCircle t 2 (pos |-| coordI 3 0) <> fillCircle t 2 (pos |+| coordI 3 0)
+    ShipVertical    -> fillRectangle t 1 2 pos 
+                    <> fillCircle t 2 (pos |-| coordI 0 3) 
+                    <> fillCircle t 2 (pos |+| coordI 0 3)
+
+    ShipHorizontal  -> fillRectangle t 2 1 pos 
+                    <> fillCircle t 2 (pos |-| coordI 3 0) 
+                    <> fillCircle t 2 (pos |+| coordI 3 0)
     where
         t = Last . Just $ Destroyer
+\end{code}
 
+Laying out the board
+===================
+* Given a board size and a list of ships
+    * we want to arrange the ships so that they are inside the boards bounds
+    * and so that no two ships overlap
+* It uses the bounds of different ships as well as query at which coordinates they are producing values
+* Big ugly function with some bugs (enough said)
+
+-----
+
+\begin{code}
 layoutBoard :: Int -> Int -> [Fill Int (Last ShipType)] -> [Fill Int (Last ShipType)]
 layoutBoard _ _ [] = []
 layoutBoard w h ships = ships'
     where
         ships' = foldl findPlace [] shipsInBnds
-        -- ships' = shipsInBnds
-        -- ships' = ships
         shipsInBnds = map toBnds ships
 
         toBnds s = let 
@@ -414,32 +520,89 @@ layoutBoard w h ships = ships'
         incOff (Coord (x,y)) | x >= w && y >= h = Coord (0, 0)
                              | x >= w           = Coord (0, y + 1)
                              | otherwise        = Coord (x + 1, y)
+\end{code}
 
 
+Making a random board
+===================
+* We want to create a random layout of 5 ships
+* We take a random number generator and return a modified generator along with the list of ships
+    * Returning the modified generator allows repeated calls to generate different lists
+* We use the `newtype` wrapper over lists `ZipList` which gives an alternate `Applicative` implementation for lists.
+    * Combines list by zipping them together and not by combining all possible combinations of values
+* Take note of `([destroyer, cruiser] !!)` where the list index operator is partially applied to a list of functions.
+    * It is then mapped to a infinite random list of [0,1] values.
+* Same trick used to generate infinite list of orientations
+* We also have infinite lists of 'x' and 'y' coordinates
+* We use `Applicative` to combine infinite lists of functions over infinite lists of values to give infinite list of resultant ships.
+* But we only take 5 of the resulting values and return them.
+* In the end we pass the list through `layoutBoard` to make sure its is a valid configuration.
+
+\begin{code}
 randomBoard :: StdGen -> (StdGen, [Fill Int (Last ShipType)])
 randomBoard gen = 
-    let ship = ZipList . map (\a -> if a == 0 then destroyer else cruiser) . randomRs (0 :: Int, 1 :: Int) $ gen
-        orient = ZipList . map (\a -> if a == 0 then ShipVertical else ShipHorizontal) . randomRs (0 :: Int, 1 :: Int) $ gen
+    let ship = ZipList . map ([destroyer, cruiser] !!) . randomRs (0, 1) $ gen
+        orient = ZipList . map ([ShipVertical,ShipHorizontal] !!) . randomRs (0, 1) $ gen
         cxs = ZipList . randomRs (0, 40) $ gen
         cys = ZipList . randomRs (0, 40) $ gen
-    in (mkStdGen . fst . random $ gen, layoutBoard 40 40 . take 5 . getZipList $ ship <*> orient <*> (coordI <$> cxs <*> cys))
+    in ( mkStdGen . fst . random $ gen
+       , layoutBoard 40 40 . take 5 . getZipList $ ship <*> orient <*> (coordI <$> cxs <*> cys)
+       )
+
+\end{code}
        
-data Game = Game { ships     :: [Fill Int (Last ShipType)]
-                 , board     :: Fill Int (Last Char)
+Managing the game
+===================
+* Now that we can define ships and draw them we need to manage the flow of our game
+* We will do that by passing around `Game` state value between different IO actions
+* We keep track of alive ships and have a board on which we draw the guesses as well as dead ships
+
+\begin{code}
+data Game = Game { ships     :: [Fill Int (Last ShipType)] -- the alive ships
+                 , board     :: Fill Int (Last Char)       -- the board showing choices and dead ships
                  }
 
+-- Helper that maps a ship to characters
 shipToBrd :: Fill Int (Last ShipType) -> Fill Int (Last Char)
 shipToBrd s = Last . (fmap produceChar) . getLast <$> s
 
+-- Helper action that draws the game board for us
 drawBrd :: Fill Int (Last Char) -> IO ()
 drawBrd = drawFillMatrix 40 40  
 
+\end{code}
+
+----
+
+* We creating a new game we use `Applicitive` again
+* `(coordI <$> [0,40] <*> [0,40])` applies `coordI` to all the possible combinations of corner coordinates
+
+\begin{code}
+
+-- Action starting a new game
 playNewGame :: StdGen -> IO ()
 playNewGame gen = let 
+                  -- we generate a random board
                   (gen', ships) = randomBoard gen
-                  border = mconcat $ map (fillRectangle (lastChar '+') 1 1) (coordI <$> [x | x <- [0,40]] <*> [y | y <- [0,40]]) 
+                  -- draw the border '+' characters using the normal Applicative instance for list
+                  -- to get all the corner combinations
+                  border = mconcat $ map (fillRectangle (lastChar '+') 1 1) (coordI <$> [0,40] <*> [0,40]) 
+                  -- and then we start the game
                   in playGame gen' (Game ships border)
+\end{code}
 
+-----
+* When we cheat in a game we momentarily show everything. 
+    * We use the `Monoid` append operator `<>` to combined the current `board`
+    * with the list of `ships` flattened to a displayable `Fill` using
+    * `mconcat` which flattens a list using `Monoid`
+
+\begin{code}
+-- when we chose to cheat we show the board with all the ships on it and then continue playing
+cheatGame :: StdGen -> Game -> IO ()
+cheatGame gen g = drawBrd (board g <> (mconcat . map shipToBrd . ships $ g)) >> playGame gen g
+
+-- when we win the game we can choice to play a new one
 wonGame :: StdGen -> IO () 
 wonGame gen = do
     putStrLn "You won the game. Play another ? 'y'/'n'"
@@ -450,16 +613,31 @@ wonGame gen = do
         'n' : _ -> return ()
         'N' : _ -> return ()
         _       -> wonGame gen
+\end{code}
 
-cheatGame :: StdGen -> Game -> IO ()
-cheatGame gen g = drawBrd (board g <> (mconcat . map shipToBrd . ships $ g)) >> playGame gen g
+----
 
+* When we take a shot we again use `Monoid` append operator `<>` to update the board
+    * We include the location of our guess using 'X'
+    * and we also include the locations of all the hit ships.
+    * The list of hit ships is collapsed into a single `Fill` using `Monoid`
+
+\begin{code}
 takeShot :: String -> StdGen -> Game -> IO ()
 takeShot t gen g = let 
     r : c : _ = map (read) (words t)
-    b = board g <> fillRectangle (lastChar 'X') 1 1 (coordI r c) <> (mconcat . map shipToBrd $ hit)
-    hit = filter (isJust . getLast . (\q -> q (coordI r c)) . queryFill) (ships g)
-    miss = filter (not . isJust . getLast . (\q -> q (coordI r c)) . queryFill) (ships g)
+    -- The board is updated
+    b = board g 
+        -- With an 'X' showing where we guessed
+        <> fillRectangle (lastChar 'X') 1 1 (coordI r c) 
+        -- And the display of all the ships which were hit
+        <> (mconcat . map shipToBrd $ hit)
+    -- Hit ships are those which produce at the coordinate
+    produces = isJust . getLast . (\q -> q (coordI r c)) . queryFill
+    hit = filter produces (ships g)
+    -- Missed ships are those which do not produce at the coordinate
+    miss = filter (not . produces) (ships g)
+    -- The new game state is all the missed ships and the updated board
     in playGame gen (Game miss b)
 
 playGame :: StdGen -> Game -> IO ()
@@ -478,20 +656,18 @@ playGame gen g = if win g then wonGame gen else do
     where 
        win (Game [] _) = True
        win _ = False
-    
+\end{code}
 
+Main function entry point
+=========================
+
+\begin{code}
 main :: IO ()
 main = do
-    -- putStrLn "myPicture"
-    -- myPicture
-    -- putStrLn "myDone"
-    -- myGameBoard
-    -- myGameBoard2
+    putStrLn "An exmaple picture"
+    myPicture
+    _ <- putStrLn "enter any text to continue " >> getLine
     gen0 <- getStdGen
-    -- let (gen1, b1) = randomBoard gen0
-    -- drawFillMatrix 40 40 . mconcat $ b1
-    -- let (gen2, b2) = randomBoard gen1
-    -- drawFillMatrix 40 40 . mconcat $ b2
     playNewGame gen0
     return ()
 \end{code}
