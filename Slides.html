@@ -45,19 +45,29 @@ Handré Stolp
 <div id="introduction" class="slide section level1">
 <h1>Introduction</h1>
 <h2 id="what-will-be-covered">What will be covered</h2>
-<ul class="incremental">
+<ul>
 <li>Basic syntax of Haskell</li>
-<li>First few type classes from the Typeclassopedia</li>
+<li>First few type classes from the Typeclassopedia (Functor, Applicative and Monoid)</li>
 </ul>
 <h2 id="how-is-it-presented">How is it presented</h2>
-<ul class="incremental">
+<ul>
 <li>As literate Haskell</li>
 <li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi</li>
+<li>Sample application making use of Functor, Applicative and Monoid
+<ul>
+<li>A basic ASCII art renderer</li>
+<li>A basic battleship / mine sweeper game</li>
+</ul></li>
 </ul>
 </div>
 <div id="begin-file" class="slide section level1">
 <h1>Begin file</h1>
-<p>here is the start of the file</p>
+<ul>
+<li>File starts with a module declaration <code>module X where</code></li>
+<li>Name of module must be same as file name (except if module contains <code>main</code> then may differ)</li>
+<li>Module definition optionally preceded by language extension pragma <code>{-# LANGAGE x #-}</code></li>
+<li>Then import declarations <code>import x</code></li>
+</ul>
 <pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FlexibleContexts #-}</span>
 <span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Slides</span> <span class="kw">where</span>
 <span class="ot">&gt;</span> 
@@ -65,7 +75,10 @@ Handré Stolp
 <span class="ot">&gt;</span> <span class="kw">import</span> Control.Applicative
 <span class="ot">&gt;</span> <span class="kw">import</span> Control.Monad
 <span class="ot">&gt;</span> <span class="kw">import</span> Data.Monoid
-<span class="ot">&gt;</span> <span class="kw">import</span> Data.Maybe</code></pre>
+<span class="ot">&gt;</span> <span class="kw">import</span> Data.Maybe
+<span class="ot">&gt;</span> <span class="kw">import</span> Data.Char
+<span class="ot">&gt;</span> <span class="kw">import</span> Debug.Trace
+<span class="ot">&gt;</span> <span class="kw">import</span> System.Random</code></pre>
 </div>
 <div id="functor" class="slide section level1">
 <h1>Functor</h1>
@@ -78,68 +91,144 @@ Handré Stolp
 <span class="ot">  pure  ::</span> a <span class="ot">-&gt;</span> f a
 <span class="ot">  (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
 </div>
-<div id="main" class="slide section level1">
-<h1>Main</h1>
-<p>Here is the main function</p>
-<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Coord</span> a <span class="fu">=</span> <span class="dt">Coord</span> {<span class="ot">unCoord ::</span> (a,a)} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<div id="coord-type" class="slide section level1">
+<h1>Coord Type</h1>
+<ul>
+<li>We want a type to hold screen (x,y) co-ordinates</li>
+<li>Instead of using the built-in tuple type we wrap it in a <code>newtype</code>
+<ul>
+<li>More control</li>
+<li>Makes a new type that shares the wrapped type's runtime infrastructure</li>
+<li>No runtime cost</li>
+<li>May only have single value and single constructor</li>
+<li>Type constructor <code>Coord</code> maps from <code>(a,a)</code> to <code>Coord</code></li>
+<li>record accessor <code>unCoord</code> maps from <code>(a,a)</code> to <code>Coord</code></li>
+</ul></li>
+<li>We fix the tuple element types so that they are the same</li>
+<li>We define <code>show</code> for Coord to be the same <code>show</code> for tuple</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Coord</span> a <span class="fu">=</span> <span class="dt">Coord</span> {<span class="ot">unCoord ::</span> (a,a)} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
 <span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Coord</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> unCoord
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Coord</span>  <span class="kw">where</span>
-<span class="ot">&gt;</span>     fmap f (<span class="dt">Coord</span> (x,y)) <span class="fu">=</span> <span class="dt">Coord</span> (f x, f y)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Coord</span> <span class="kw">where</span>
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Coord</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> unCoord</code></pre>
+</div>
+<div id="coord-functor" class="slide section level1">
+<h1>Coord Functor</h1>
+<ul>
+<li>We give <code>Coord</code> a <code>Functor</code> instance</li>
+<li>It applies the function to each element</li>
+<li>Will allow us to lift functions to work on <code>Coord</code></li>
+<li>Will come in useful later</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Coord</span>  <span class="kw">where</span>
+<span class="ot">&gt;</span>     fmap f (<span class="dt">Coord</span> (x,y)) <span class="fu">=</span> <span class="dt">Coord</span> (f x, f y)</code></pre>
+</div>
+<div id="coord-applicative" class="slide section level1">
+<h1>Coord Applicative</h1>
+<ul>
+<li><code>Applicative</code> instance allows us to apply lifted function to values in <code>Coord</code> context</li>
+<li><code>pure</code> fills both elements with the same value</li>
+<li><code>&lt;*&gt;</code> applies the functions in each element of LHS <code>Coord</code> to values in RHS <code>Coord</code> respectively</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Coord</span> <span class="kw">where</span>
 <span class="ot">&gt;</span>     pure a <span class="fu">=</span> <span class="dt">Coord</span> (a,a)
-<span class="ot">&gt;</span>     <span class="dt">Coord</span> (g, h) <span class="fu">&lt;*&gt;</span> <span class="dt">Coord</span> (x, y) <span class="fu">=</span> <span class="dt">Coord</span> (g x, h y)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Monoid</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Coord</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     <span class="dt">Coord</span> (g, h) <span class="fu">&lt;*&gt;</span> <span class="dt">Coord</span> (x, y) <span class="fu">=</span> <span class="dt">Coord</span> (g x, h y)</code></pre>
+</div>
+<div id="coord-monoid" class="slide section level1">
+<h1>Coord Monoid</h1>
+<ul>
+<li>We only have a <code>Monoid</code> instance if the element type has one</li>
+<li><code>mempty</code> is just <code>mempty</code> for the element type</li>
+<li><code>mappend</code> is just <code>mappend</code> for the element type applied per element respectively</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Monoid</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Coord</span> a) <span class="kw">where</span>
 <span class="ot">&gt;</span>    mempty <span class="fu">=</span> <span class="dt">Coord</span> (mempty, mempty)
-<span class="ot">&gt;</span>    <span class="dt">Coord</span> (lx, ly) <span class="ot">`mappend`</span> <span class="dt">Coord</span> (rx, ry) <span class="fu">=</span> <span class="dt">Coord</span> (lx <span class="fu">&lt;&gt;</span> rx, ly <span class="fu">&lt;&gt;</span> ry)
+<span class="ot">&gt;</span>    <span class="dt">Coord</span> (lx, ly) <span class="ot">`mappend`</span> <span class="dt">Coord</span> (rx, ry) <span class="fu">=</span> <span class="dt">Coord</span> (lx <span class="fu">&lt;&gt;</span> rx, ly <span class="fu">&lt;&gt;</span> ry)</code></pre>
+</div>
+<div id="coord-operators" class="slide section level1">
+<h1>Coord Operators</h1>
+<ul>
+<li>We add our own operators for adding and subtracting <code>Coord</code> values</li>
+<li>We restrict the operators to only be available if the element type is of class <code>Num</code>
+<ul>
+<li><code>Num</code> gives access to <code>+</code> and <code>-</code></li>
+</ul></li>
+<li>We give them the same operator precedence as <code>+</code> and <code>-</code></li>
+<li>Because <code>Coord</code> is of class <code>Applicative</code> we can define the operations by lifting <code>+</code> and <code>-</code>
+<ul>
+<li>Lift <code>+</code> and apply to <code>a</code> (<code>(+) &lt;$&gt; a</code>)</li>
+<li>Apply the partially applied function in <code>Coord</code> to <code>b</code> (<code>&lt;*&gt; b</code>)</li>
+</ul></li>
+<li>Clean and clear</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; (|+|) ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a
+<span class="ot">&gt;</span> <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|+|</span>
+<span class="ot">&gt;</span> a <span class="fu">|+|</span> b <span class="fu">=</span> (<span class="fu">+</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
 <span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">Additive</span> a <span class="kw">where</span>
-<span class="ot">&gt;     (|+|) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
-<span class="ot">&gt;</span>     <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|+|</span>
-<span class="ot">&gt;     (|-|) ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
-<span class="ot">&gt;</span>     <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|-|</span>
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Additive</span> (<span class="dt">Coord</span> a) <span class="kw">where</span>
-<span class="ot">&gt;</span>     a <span class="fu">|+|</span> b <span class="fu">=</span> (<span class="fu">+</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
-<span class="ot">&gt;</span>     a <span class="fu">|-|</span> b <span class="fu">=</span> (<span class="fu">-</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
-<span class="ot">&gt;</span> 
-<span class="ot">&gt; coordLength ::</span> (<span class="dt">Real</span> a, <span class="dt">Floating</span> b) <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> b
-<span class="ot">&gt;</span> coordLength (<span class="dt">Coord</span> (x, y)) <span class="fu">=</span> sqrt <span class="fu">.</span> realToFrac <span class="fu">$</span> x <span class="fu">*</span> x <span class="fu">+</span> y <span class="fu">*</span> y
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Extents</span> a <span class="fu">=</span> <span class="dt">Extents</span> {<span class="ot">coordFromExtents ::</span> <span class="dt">Coord</span> a} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt; (|-|) ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a
+<span class="ot">&gt;</span> <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|-|</span>
+<span class="ot">&gt;</span> a <span class="fu">|-|</span> b <span class="fu">=</span> (<span class="fu">-</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b</code></pre>
+<ul>
+<li>Helper function to give the length of the co-ordinate
+<ul>
+<li>Notice <code>realToFrac</code>, its used to coerce any real number to a fractional (for <code>sqrt</code>)
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; coordLength ::</span> (<span class="dt">Real</span> a, <span class="dt">Floating</span> b) <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> b
+<span class="ot">&gt;</span> coordLength (<span class="dt">Coord</span> (x, y)) <span class="fu">=</span> sqrt <span class="fu">.</span> realToFrac <span class="fu">$</span> x <span class="fu">*</span> x <span class="fu">+</span> y <span class="fu">*</span> y</code></pre></li>
+</ul></li>
+</ul>
+</div>
+<div id="extents-type" class="slide section level1">
+<h1>Extents Type</h1>
+<ul>
+<li>When working with rectangular bounds we want a centre and an extent</li>
+<li>An extent must always be positive and is half the width and height of the bounding rectangle</li>
+<li>But extents are usually going to be applied to <code>Coord</code> values</li>
+<li>We <code>newtype</code> wrap <code>Coord</code> to create <code>Extent</code>
+<ul>
+<li>This limits operations on <code>Extents</code></li>
+<li>We ignore <code>Extents</code> data constrcutor and use <code>extentsFromCoord</code> which forces absolute values</li>
+<li>Ideally you would not export the <code>Extents</code> constructor from the module</li>
+</ul></li>
+<li><code>extentsFromCoord</code> maps <code>Coord</code> to <code>Extents</code></li>
+<li>record member accessor <code>coordFromExtents</code> maps <code>Extents</code> to <code>Coord</code></li>
+<li>Notice that we chain the <code>Extents</code> constructor with the lifted <code>abs</code> function over <code>Coord</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Extents</span> a <span class="fu">=</span> <span class="dt">Extents</span> {<span class="ot">coordFromExtents ::</span> <span class="dt">Coord</span> a} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
 <span class="ot">&gt;</span> 
 <span class="ot">&gt; extentsFromCoord ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Extents</span> a
 <span class="ot">&gt;</span> extentsFromCoord c <span class="fu">=</span> <span class="dt">Extents</span> <span class="fu">.</span> fmap abs <span class="fu">$</span> c
 <span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Extents</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> coordFromExtents
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Bounds</span> a <span class="fu">=</span> <span class="dt">Bounds</span> {<span class="ot"> boundsCentre ::</span> <span class="dt">Coord</span> a
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Extents</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> coordFromExtents</code></pre>
+</div>
+<div id="bounds-type" class="slide section level1">
+<h1>Bounds Type</h1>
+<ul>
+<li>We represent a <code>Bounds</code> as a centre with an extents</li>
+<li>It is parametric in the element type of <code>Coord</code> and <code>Extents</code></li>
+<li>We add a <code>Monoid</code> instance so that <code>Bounds</code> may accumulate into larger <code>Bounds</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Bounds</span> a <span class="fu">=</span> <span class="dt">Bounds</span> {<span class="ot"> boundsCentre ::</span> <span class="dt">Coord</span> a
 <span class="ot">&gt;</span>                        ,<span class="ot"> boundsExtent ::</span> <span class="dt">Extents</span> a
-<span class="ot">&gt;</span>                        }  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt; pointInBounds ::</span> (<span class="dt">Num</span> a, <span class="dt">Ord</span> a) <span class="ot">=&gt;</span> <span class="dt">Bounds</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Maybe</span> (<span class="dt">Coord</span> a)
-<span class="ot">&gt;</span> pointInBounds b c <span class="fu">=</span> <span class="kw">let</span>
-<span class="ot">&gt;</span>         cntr <span class="fu">=</span> boundsCentre b
-<span class="ot">&gt;</span>         <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> b
-<span class="ot">&gt;</span>         <span class="dt">Coord</span> (dx, dy) <span class="fu">=</span> c <span class="fu">|-|</span> cntr
-<span class="ot">&gt;</span>         ox <span class="fu">=</span> <span class="kw">if</span> dx <span class="fu">&lt;</span> <span class="dv">0</span> <span class="kw">then</span> ex <span class="fu">+</span> dx <span class="kw">else</span> ex <span class="fu">-</span> dx
-<span class="ot">&gt;</span>         oy <span class="fu">=</span> <span class="kw">if</span> dy <span class="fu">&lt;</span> <span class="dv">0</span> <span class="kw">then</span> ey <span class="fu">+</span> dy <span class="kw">else</span> ey <span class="fu">-</span> dy
-<span class="ot">&gt;</span>         <span class="kw">in</span> 
-<span class="ot">&gt;</span>             <span class="kw">if</span> (abs dx <span class="fu">&lt;</span> ex <span class="fu">&amp;&amp;</span> abs dy <span class="fu">&lt;</span> ey) <span class="kw">then</span> <span class="dt">Nothing</span> <span class="kw">else</span> <span class="dt">Just</span> <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (ox, oy)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>                        }  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)</code></pre>
+<ul>
+<li>We need to specify how element types can be divided</li>
+<li>for this we add the <code>Divisor</code> class and specialize it for the numeric types</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> 
 <span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">Divisor</span> a <span class="kw">where</span><span class="ot"> divideBy&#39; ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
 <span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Double</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> (<span class="fu">/</span>)
 <span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Float</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> (<span class="fu">/</span>)
 <span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Int</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> div
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Integer</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> div
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> (<span class="dt">Divisor</span> a, <span class="dt">Num</span> a, <span class="dt">Eq</span> a) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Bounds</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Integer</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> div</code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>Our <code>Monoid</code> instance requires that the element type be in <code>Divisor</code>, <code>Num</code> and <code>Eq</code> so that all operations can be performed.</li>
+<li>Empty bounds has zero extents</li>
+<li>The 'sum' of 2 bounds is the average of their centres and the sum of their extents</li>
+<li>Since <code>Coord</code> is <code>Applicative</code> notice how we can lift <code>divideBy</code> to work on the result of <code>|+|</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> (<span class="dt">Divisor</span> a, <span class="dt">Num</span> a, <span class="dt">Eq</span> a) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Bounds</span> a) <span class="kw">where</span>
 <span class="ot">&gt;</span>     <span class="co">-- A zero extents bounds is considered empty</span>
 <span class="ot">&gt;</span>     mempty <span class="fu">=</span> <span class="dt">Bounds</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>)) (extentsFromCoord <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (<span class="dv">0</span>,<span class="dv">0</span>))
 <span class="ot">&gt;</span>     <span class="co">-- Appending empty to anything does not change it</span>
@@ -151,46 +240,93 @@ Handré Stolp
 <span class="ot">&gt;</span>             <span class="co">-- centre is the average of the two centres</span>
 <span class="ot">&gt;</span>             c <span class="fu">=</span> (<span class="ot">`divideBy&#39;`</span><span class="dv">2</span>) <span class="fu">&lt;$&gt;</span> boundsCentre l <span class="fu">|+|</span> boundsCentre r
 <span class="ot">&gt;</span>             <span class="co">-- extents is the sum of the two extents</span>
-<span class="ot">&gt;</span>             e <span class="fu">=</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> l) <span class="fu">|+|</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> r)
-<span class="ot">&gt;</span>     
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">CoordI</span> <span class="fu">=</span> <span class="dt">Coord</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span>             e <span class="fu">=</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> l) <span class="fu">|+|</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> r)</code></pre>
+</div>
+<div id="convenience-integer-typedefs" class="slide section level1">
+<h1>Convenience Integer Typedefs</h1>
+<ul>
+<li><code>coordI</code> constructor for <code>Int</code> based <code>Coord</code> values.</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">CoordI</span> <span class="fu">=</span> <span class="dt">Coord</span> <span class="dt">Int</span>
 <span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">ExtentsI</span> <span class="fu">=</span> <span class="dt">Extents</span> <span class="dt">Int</span>
 <span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">BoundsI</span> <span class="fu">=</span> <span class="dt">Bounds</span> <span class="dt">Int</span>
 <span class="ot">&gt;</span> 
 <span class="ot">&gt; coordI ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="dt">Int</span>
-<span class="ot">&gt;</span> coordI x y <span class="fu">=</span> <span class="dt">Coord</span> (x,y)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Fill</span> c a <span class="fu">=</span> <span class="dt">Fill</span> {<span class="ot">runFill ::</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> (<span class="dt">Bounds</span> c, a)}
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">Fill</span> c) <span class="kw">where</span> 
-<span class="ot">&gt;</span>     fmap g fl <span class="fu">=</span> <span class="dt">Fill</span> <span class="fu">$</span> (\(a, b) <span class="ot">-&gt;</span> (a, g b)) <span class="fu">&lt;$&gt;</span> runFill fl
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">instance</span> (<span class="dt">Monoid</span> a, <span class="dt">Monoid</span> (<span class="dt">Bounds</span> c)) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Fill</span> c a) <span class="kw">where</span>
-<span class="ot">&gt;</span>     mempty <span class="fu">=</span> <span class="dt">Fill</span> <span class="fu">.</span> const <span class="fu">$</span> mempty
-<span class="ot">&gt;</span>     a <span class="ot">`mappend`</span> b <span class="fu">=</span> <span class="dt">Fill</span> (runFill a <span class="fu">&lt;&gt;</span> runFill b)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt; moveFill ::</span> <span class="dt">Num</span> c <span class="ot">=&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
-<span class="ot">&gt;</span> moveFill c <span class="fu">=</span> <span class="dt">Fill</span> <span class="fu">.</span> (<span class="fu">.</span> (<span class="fu">|+|</span> c)) <span class="fu">.</span> runFill
-<span class="ot">&gt;</span> 
-<span class="ot">&gt; fillCircle ::</span> (<span class="dt">Real</span> c, <span class="dt">Divisor</span> c, <span class="dt">Monoid</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
-<span class="ot">&gt;</span> fillCircle val radius pos <span class="fu">=</span> <span class="dt">Fill</span> produce
+<span class="ot">&gt;</span> coordI x y <span class="fu">=</span> <span class="dt">Coord</span> (x,y)</code></pre>
+</div>
+<div id="fill-type" class="slide section level1">
+<h1>Fill Type</h1>
+<ul>
+<li>We want to define how to draw to 2D area</li>
+<li>We also want to associate arbitrary data with 2D area</li>
+<li>We define the data type <code>Fill</code> based on some <code>Coord</code> element type <code>c</code> and some value <code>a</code>
+<ul>
+<li>It fills a 2D area with values : <code>queryFill</code> maps <code>Coord</code> inputs to some value <code>a</code></li>
+<li>It has an associated bounds : <code>fillBounds</code></li>
+<li>It is possible to move a <code>Fill</code> around : <code>moveFill</code></li>
+</ul></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Fill</span> c a <span class="fu">=</span> <span class="dt">Fill</span>  {<span class="ot"> queryFill  ::</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> a
+<span class="ot">&gt;</span>                       ,<span class="ot"> fillBounds ::</span> <span class="dt">Bounds</span> c
+<span class="ot">&gt;</span>                       ,<span class="ot"> moveFill   ::</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
+<span class="ot">&gt;</span>                       }</code></pre>
+</div>
+<div id="fill-functor-and-monoid" class="slide section level1">
+<h1>Fill Functor and Monoid</h1>
+<ul>
+<li>We make <code>Fill c</code> a <code>Functor</code> so that the associated values may be modified.</li>
+<li>The functor instance retains the bounds (i.e. position does not change)</li>
+<li>Since <code>(-&gt;) a</code> is an instance of <code>Functor</code> we just <code>fmap</code> <code>g</code> over <code>q</code> to get the modified query.
+<ul>
+<li>Changes the output of the current query by passing it through the function being mapped.</li>
+</ul></li>
+<li>Similarly <code>moveFill</code> is a <code>Functor</code> but its result is also a <code>Fucntor</code> so we just lift the function twice to get the new move.</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">Fill</span> c) <span class="kw">where</span>
+<span class="ot">&gt;</span>     fmap g <span class="dt">Fill</span>  { queryFill <span class="fu">=</span> q
+<span class="ot">&gt;</span>                  , fillBounds <span class="fu">=</span> b
+<span class="ot">&gt;</span>                  , moveFill <span class="fu">=</span> m
+<span class="ot">&gt;</span>                  } <span class="fu">=</span> <span class="dt">Fill</span> (fmap g q)            <span class="co">-- map g over q to get new query</span>
+<span class="ot">&gt;</span>                           b 
+<span class="ot">&gt;</span>                           ((fmap <span class="fu">.</span> fmap) g m)   <span class="co">-- lift g twice before applying to m to the new move function</span></code></pre>
+<ul>
+<li><code>Fill</code> has a <code>Monoid</code> instance given that
+<ul>
+<li><code>Bounds</code> has a <code>Monoid</code> instance for the co-ordinate type <code>c</code></li>
+<li>and the value type <code>a</code> has a <code>Monoid</code> instance</li>
+</ul></li>
+<li>Since <code>(-&gt;) a</code> has a <code>Monoid</code> instance just 'concat' the query functions and the move functions</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> (<span class="dt">Monoid</span> a, <span class="dt">Monoid</span> (<span class="dt">Bounds</span> c)) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Fill</span> c a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     mempty <span class="fu">=</span> <span class="dt">Fill</span> (const mempty) mempty (const mempty)
+<span class="ot">&gt;</span>     a <span class="ot">`mappend`</span> b <span class="fu">=</span> <span class="dt">Fill</span> (queryFill a <span class="fu">&lt;&gt;</span> queryFill b)       <span class="co">-- concat the result of the query</span>
+<span class="ot">&gt;</span>                          (fillBounds a <span class="fu">&lt;&gt;</span> fillBounds b)     <span class="co">-- sum the bounds</span>
+<span class="ot">&gt;</span>                          (moveFill a <span class="fu">&lt;&gt;</span> moveFill b)         <span class="co">-- concat the results of the move</span></code></pre>
+</div>
+<div id="filling-primitives" class="slide section level1">
+<h1>Filling Primitives</h1>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; fillCircle ::</span> (<span class="dt">Real</span> c, <span class="dt">Divisor</span> c, <span class="dt">Monoid</span> a, <span class="dt">Show</span> c) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
+<span class="ot">&gt;</span> fillCircle val radius pos <span class="fu">=</span> <span class="dt">Fill</span> qry bnds mv
 <span class="ot">&gt;</span>     <span class="kw">where</span>
-<span class="ot">&gt;</span>     produce crd <span class="fu">|</span> coordLength (crd <span class="fu">|-|</span> pos) <span class="fu">&lt;=</span> realToFrac radius  <span class="fu">=</span> (bnds, val)
-<span class="ot">&gt;</span>                 <span class="fu">|</span> otherwise                                      <span class="fu">=</span> (mempty, mempty)
+<span class="ot">&gt;</span>     qry crd <span class="fu">|</span> coordLength (crd <span class="fu">|-|</span> pos) <span class="fu">&lt;=</span> realToFrac radius  <span class="fu">=</span> val
+<span class="ot">&gt;</span>             <span class="fu">|</span> otherwise                                       <span class="fu">=</span> mempty
 <span class="ot">&gt;</span>     bnds <span class="fu">=</span> <span class="dt">Bounds</span> pos (<span class="dt">Extents</span> <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (radius, radius))
+<span class="ot">&gt;</span>     mv <span class="fu">=</span> fillCircle val radius <span class="fu">.</span> (pos <span class="fu">|+|</span>) 
 <span class="ot">&gt;</span> 
-<span class="ot">&gt; fillRectangle ::</span> (<span class="dt">Real</span> c, <span class="dt">Divisor</span> c, <span class="dt">Monoid</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
-<span class="ot">&gt;</span> fillRectangle val w h pos <span class="fu">=</span> <span class="dt">Fill</span> produce
+<span class="ot">&gt; fillRectangle ::</span> (<span class="dt">Real</span> c, <span class="dt">Divisor</span> c, <span class="dt">Monoid</span> a, <span class="dt">Show</span> c) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
+<span class="ot">&gt;</span> fillRectangle val w h pos <span class="fu">=</span> <span class="dt">Fill</span> qry bnds mv
 <span class="ot">&gt;</span>     <span class="kw">where</span>
-<span class="ot">&gt;</span>     produce crd <span class="fu">|</span> <span class="kw">let</span> (x, y) <span class="fu">=</span> unCoord <span class="fu">$</span> abs <span class="fu">&lt;$&gt;</span> (crd <span class="fu">|-|</span> pos) 
-<span class="ot">&gt;</span>                   <span class="kw">in</span> x <span class="fu">&lt;=</span> halfW <span class="fu">&amp;&amp;</span> y <span class="fu">&lt;=</span> halfH           <span class="fu">=</span> (bnds, val)
-<span class="ot">&gt;</span>                 <span class="fu">|</span> otherwise                             <span class="fu">=</span> (mempty, mempty)
+<span class="ot">&gt;</span>     qry crd <span class="fu">|</span> <span class="kw">let</span> (x, y) <span class="fu">=</span> unCoord <span class="fu">$</span> abs <span class="fu">&lt;$&gt;</span> (crd <span class="fu">|-|</span> pos) 
+<span class="ot">&gt;</span>                   <span class="kw">in</span> x <span class="fu">&lt;=</span> halfW <span class="fu">&amp;&amp;</span> y <span class="fu">&lt;=</span> halfH       <span class="fu">=</span> val
+<span class="ot">&gt;</span>             <span class="fu">|</span> otherwise                             <span class="fu">=</span> mempty
 <span class="ot">&gt;</span>     halfW <span class="fu">=</span> w <span class="ot">`divideBy&#39;`</span> <span class="dv">2</span>
 <span class="ot">&gt;</span>     halfH <span class="fu">=</span> h <span class="ot">`divideBy&#39;`</span> <span class="dv">2</span>
 <span class="ot">&gt;</span>     bnds <span class="fu">=</span> <span class="dt">Bounds</span> pos (<span class="dt">Extents</span> <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (halfW, halfH))
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">ProduceChar</span> a <span class="kw">where</span><span class="ot"> produceChar ::</span> a <span class="ot">-&gt;</span> <span class="dt">Char</span>
+<span class="ot">&gt;</span>     mv <span class="fu">=</span> fillRectangle val w h <span class="fu">.</span> (pos <span class="fu">|+|</span>) </code></pre>
+</div>
+<div id="drawing-ascii" class="slide section level1">
+<h1>Drawing ASCII</h1>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">ProduceChar</span> a <span class="kw">where</span><span class="ot"> produceChar ::</span> a <span class="ot">-&gt;</span> <span class="dt">Char</span>
 <span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> <span class="dt">Char</span> <span class="kw">where</span> 
 <span class="ot">&gt;</span>     produceChar <span class="fu">=</span> id
 <span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> a <span class="ot">=&gt;</span> <span class="dt">ProduceChar</span> (<span class="dt">Maybe</span> a) <span class="kw">where</span>
@@ -204,34 +340,37 @@ Handré Stolp
 <span class="ot">&gt;</span> drawFillMatrix cs ls fl <span class="fu">=</span> putStrLn <span class="fu">$</span> ios cs2 ls
 <span class="ot">&gt;</span>     <span class="kw">where</span>
 <span class="ot">&gt;</span>         cs2      <span class="fu">=</span> cs <span class="fu">*</span> <span class="dv">2</span>
-<span class="ot">&gt;</span>         flToChar <span class="fu">=</span> runFill <span class="fu">.</span> fmap produceChar <span class="fu">$</span> fl
+<span class="ot">&gt;</span>         flToChar <span class="fu">=</span> queryFill <span class="fu">.</span> fmap produceChar <span class="fu">$</span> fl
 <span class="ot">&gt;</span>         ios <span class="dv">0</span> <span class="dv">0</span>  <span class="fu">=</span> []
 <span class="ot">&gt;</span>         ios <span class="dv">0</span> l  <span class="fu">=</span> <span class="ch">&#39;\n&#39;</span> <span class="fu">:</span> ios cs2 (l<span class="fu">-</span><span class="dv">1</span>)
-<span class="ot">&gt;</span>         ios c l  <span class="fu">=</span> (snd <span class="fu">.</span> flToChar <span class="fu">$</span> <span class="dt">Coord</span> (cs <span class="fu">-</span> c <span class="ot">`div`</span> <span class="dv">2</span>, ls <span class="fu">-</span> l)) <span class="fu">:</span> ios (c<span class="fu">-</span><span class="dv">1</span>) l
+<span class="ot">&gt;</span>         ios c l  <span class="fu">=</span> (flToChar <span class="fu">$</span> <span class="dt">Coord</span> (cs <span class="fu">-</span> c <span class="ot">`div`</span> <span class="dv">2</span>, ls <span class="fu">-</span> l)) <span class="fu">:</span> ios (c<span class="fu">-</span><span class="dv">1</span>) l
 <span class="ot">&gt;</span> 
 <span class="ot">&gt; lastChar ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Last</span> <span class="dt">Char</span>
-<span class="ot">&gt;</span> lastChar <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> <span class="dt">Just</span>
+<span class="ot">&gt;</span> lastChar <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> <span class="dt">Just</span></code></pre>
+</div>
+<div id="example-picture" class="slide section level1">
+<h1>Example Picture</h1>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; myPicture ::</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> myPicture <span class="fu">=</span> drawFillMatrix <span class="dv">40</span> <span class="dv">40</span> (border <span class="fu">&lt;&gt;</span> moveFill image (coordI <span class="dv">5</span> <span class="dv">5</span>))
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>         border <span class="fu">=</span>  fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">0</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">40</span> <span class="dv">40</span>)
+<span class="ot">&gt;</span>                <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">40</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">0</span> <span class="dv">40</span>)
 <span class="ot">&gt;</span> 
-<span class="ot">&gt; myPicture ::</span> <span class="dt">IO</span> ()
-<span class="ot">&gt;</span> myPicture <span class="fu">=</span> drawFillMatrix <span class="dv">40</span> <span class="dv">40</span> 
-<span class="ot">&gt;</span>             (
-<span class="ot">&gt;</span>                fillCircle    (lastChar <span class="ch">&#39;X&#39;</span>) <span class="dv">11</span>  (coordI <span class="dv">15</span> <span class="dv">15</span>)
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillCircle    (lastChar <span class="ch">&#39;#&#39;</span>) <span class="dv">7</span>   (coordI <span class="dv">15</span> <span class="dv">15</span>)
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;$&#39;</span>) <span class="dv">6</span> <span class="dv">6</span> (coordI <span class="dv">15</span> <span class="dv">15</span>)
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillCircle    (lastChar <span class="ch">&#39; &#39;</span>) <span class="dv">2</span>   (coordI <span class="dv">15</span> <span class="dv">15</span>)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">0</span> <span class="dv">0</span>)
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">40</span> <span class="dv">40</span>)
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">40</span> <span class="dv">0</span>)
-<span class="ot">&gt;</span>             <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">0</span> <span class="dv">40</span>)
-<span class="ot">&gt;</span>             )
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">ShipType</span> <span class="fu">=</span> <span class="dt">Cruiser</span> <span class="fu">|</span> <span class="dt">Destroyer</span>
+<span class="ot">&gt;</span>         image <span class="fu">=</span>  fillCircle    (lastChar <span class="ch">&#39;X&#39;</span>) <span class="dv">11</span>  (coordI <span class="dv">15</span> <span class="dv">15</span>)
+<span class="ot">&gt;</span>               <span class="fu">&lt;&gt;</span> fillCircle    (lastChar <span class="ch">&#39;#&#39;</span>) <span class="dv">7</span>   (coordI <span class="dv">15</span> <span class="dv">15</span>)
+<span class="ot">&gt;</span>               <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;$&#39;</span>) <span class="dv">6</span> <span class="dv">6</span> (coordI <span class="dv">15</span> <span class="dv">15</span>)
+<span class="ot">&gt;</span>               <span class="fu">&lt;&gt;</span> fillCircle    (lastChar <span class="ch">&#39; &#39;</span>) <span class="dv">2</span>   (coordI <span class="dv">15</span> <span class="dv">15</span>)</code></pre>
+</div>
+<div id="battle-ship" class="slide section level1">
+<h1>Battle ship</h1>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">ShipType</span> <span class="fu">=</span> <span class="dt">Cruiser</span> <span class="fu">|</span> <span class="dt">Destroyer</span>
 <span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> <span class="dt">ShipType</span> <span class="kw">where</span>
 <span class="ot">&gt;</span>     produceChar <span class="dt">Cruiser</span> <span class="fu">=</span> <span class="ch">&#39;C&#39;</span>
 <span class="ot">&gt;</span>     produceChar <span class="dt">Destroyer</span> <span class="fu">=</span> <span class="ch">&#39;D&#39;</span>
 <span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">ShipOrientation</span> <span class="fu">=</span> <span class="dt">ShipVertical</span> <span class="fu">|</span> <span class="dt">ShipHorizontal</span> <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">ShipOrientation</span> <span class="fu">=</span> <span class="dt">ShipVertical</span> <span class="fu">|</span> <span class="dt">ShipHorizontal</span> <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Bounded</span>)
 <span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> <span class="co">-- {} deriving (Show, Eq, Ord)</span>
 <span class="ot">&gt;</span> 
 <span class="ot">&gt; cruiser ::</span> <span class="dt">ShipOrientation</span> <span class="ot">-&gt;</span> <span class="dt">CoordI</span> <span class="ot">-&gt;</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)
@@ -248,55 +387,135 @@ Handré Stolp
 <span class="ot">&gt;</span>     <span class="kw">where</span>
 <span class="ot">&gt;</span>         t <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> <span class="dt">Just</span> <span class="fu">$</span> <span class="dt">Destroyer</span>
 <span class="ot">&gt;</span> 
-<span class="ot">&gt; myGameBoard ::</span> <span class="dt">IO</span> ()
-<span class="ot">&gt;</span> myGameBoard <span class="fu">=</span> drawFillMatrix <span class="dv">40</span> <span class="dv">40</span> (  cruiser <span class="dt">ShipHorizontal</span> (coordI <span class="dv">8</span> <span class="dv">8</span>) 
-<span class="ot">&gt;</span>                                    <span class="fu">&lt;&gt;</span> cruiser <span class="dt">ShipVertical</span> (coordI <span class="dv">14</span> <span class="dv">14</span>)
-<span class="ot">&gt;</span>                                    <span class="fu">&lt;&gt;</span> destroyer <span class="dt">ShipVertical</span> (coordI <span class="dv">28</span> <span class="dv">28</span>)
-<span class="ot">&gt;</span>                                    <span class="fu">&lt;&gt;</span> destroyer <span class="dt">ShipHorizontal</span> (coordI <span class="dv">34</span> <span class="dv">34</span>)
-<span class="ot">&gt;</span>                                    )
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Max</span> a <span class="fu">=</span> <span class="dt">Max</span> {<span class="ot">unMax ::</span> <span class="dt">Maybe</span> a}
-<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Ord</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Max</span> a) <span class="kw">where</span>
-<span class="ot">&gt;</span>    mempty <span class="fu">=</span> <span class="dt">Max</span> <span class="dt">Nothing</span>
-<span class="ot">&gt;</span>    <span class="dt">Max</span> <span class="dt">Nothing</span> <span class="ot">`mappend`</span> r <span class="fu">=</span> r
-<span class="ot">&gt;</span>    l <span class="ot">`mappend`</span> <span class="dt">Max</span> <span class="dt">Nothing</span>  <span class="fu">=</span> l
-<span class="ot">&gt;</span>    <span class="dt">Max</span> (<span class="dt">Just</span> l) <span class="ot">`mappend`</span> <span class="dt">Max</span> (<span class="dt">Just</span> r)  <span class="fu">=</span> <span class="dt">Max</span> <span class="fu">.</span> <span class="dt">Just</span> <span class="fu">.</span> max l <span class="fu">$</span> r
-<span class="ot">&gt;</span> 
 <span class="ot">&gt; layoutBoard ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)] <span class="ot">-&gt;</span> [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)]
 <span class="ot">&gt;</span> layoutBoard _ _ [] <span class="fu">=</span> []
 <span class="ot">&gt;</span> layoutBoard w h ships <span class="fu">=</span> ships&#39;
 <span class="ot">&gt;</span>     <span class="kw">where</span>
-<span class="ot">&gt;</span>         ships&#39; <span class="fu">=</span> shipsInBnds
-<span class="ot">&gt;</span>         shipsInBnds <span class="fu">=</span> map inBnds ships
-<span class="ot">&gt;</span>         corners <span class="fu">=</span> [coordI x y <span class="fu">|</span> x <span class="ot">&lt;-</span> [<span class="dv">0</span>,w], y <span class="ot">&lt;-</span> [<span class="dv">0</span>,h]]
-<span class="ot">&gt;</span>         inBnds s <span class="fu">=</span> <span class="kw">let</span> (bnds, _) <span class="fu">=</span> runFill s (coordI <span class="dv">0</span> <span class="dv">0</span>)
-<span class="ot">&gt;</span>                     <span class="kw">in</span> <span class="kw">case</span> (fmap <span class="fu">.</span> fmap <span class="fu">$</span> unMax) 
-<span class="ot">&gt;</span>                              <span class="fu">.</span>  mconcat 
-<span class="ot">&gt;</span>                              <span class="fu">.</span>  map (fmap <span class="fu">.</span> fmap <span class="fu">$</span> <span class="dt">Max</span> <span class="fu">.</span> <span class="dt">Just</span>) 
-<span class="ot">&gt;</span>                              <span class="fu">.</span>  map (pointInBounds bnds) 
-<span class="ot">&gt;</span>                              <span class="fu">$</span> corners <span class="kw">of</span>
-<span class="ot">&gt;</span>                         <span class="dt">Nothing</span> <span class="ot">-&gt;</span> s
-<span class="ot">&gt;</span>                         <span class="dt">Just</span> (<span class="dt">Coord</span> (<span class="dt">Just</span> dx, <span class="dt">Just</span> dy))  <span class="ot">-&gt;</span> moveFill (coordI dx dy) s
-<span class="ot">&gt;</span>         findPlace [] n <span class="fu">=</span> n
-<span class="ot">&gt;</span>         findPlace ps n <span class="fu">=</span> moveFill (offset (mconcat ps) n) n
-<span class="ot">&gt;</span>         offset chk n   <span class="fu">=</span> <span class="kw">let</span> 
-<span class="ot">&gt;</span>                          (bnds, _) <span class="fu">=</span> runFill n (coordI <span class="dv">0</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>         ships&#39; <span class="fu">=</span> foldl findPlace [] shipsInBnds
+<span class="ot">&gt;</span>         <span class="co">-- ships&#39; = shipsInBnds</span>
+<span class="ot">&gt;</span>         <span class="co">-- ships&#39; = ships</span>
+<span class="ot">&gt;</span>         shipsInBnds <span class="fu">=</span> map toBnds ships
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         toBnds s <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                     bnds  <span class="fu">=</span> fillBounds s 
+<span class="ot">&gt;</span>                     <span class="dt">Coord</span> (cx, cy) <span class="fu">=</span> boundsCentre bnds
+<span class="ot">&gt;</span>                     <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> bnds
+<span class="ot">&gt;</span>                     dx <span class="fu">=</span> <span class="kw">if</span> cx <span class="fu">&lt;</span> ex <span class="kw">then</span> ex <span class="fu">-</span> cx <span class="kw">else</span> (<span class="kw">if</span> cx <span class="fu">+</span> ex <span class="fu">&gt;</span> w <span class="kw">then</span> w <span class="fu">-</span> cx <span class="fu">-</span> ex  <span class="kw">else</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                     dy <span class="fu">=</span> <span class="kw">if</span> cy <span class="fu">&lt;</span> ey <span class="kw">then</span> ey <span class="fu">-</span> cy <span class="kw">else</span> (<span class="kw">if</span> cy <span class="fu">+</span> ey <span class="fu">&gt;</span> h <span class="kw">then</span> h <span class="fu">-</span> cy <span class="fu">-</span> ey  <span class="kw">else</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                     <span class="kw">in</span> moveFill s (coordI dx dy)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         findPlace [] n <span class="fu">=</span> [n]
+<span class="ot">&gt;</span>         findPlace ps n <span class="fu">=</span> ps <span class="fu">&lt;&gt;</span> [offset (mconcat ps) n (coordI <span class="dv">0</span> <span class="dv">0</span>) <span class="dv">0</span>]
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         offset chk n o m <span class="fu">=</span> 
+<span class="ot">&gt;</span>                          <span class="kw">let</span> 
+<span class="ot">&gt;</span>                          n&#39; <span class="fu">=</span> <span class="kw">if</span> m <span class="fu">&gt;=</span> <span class="dv">2</span> <span class="fu">*</span> w <span class="fu">*</span> h <span class="kw">then</span> error <span class="st">&quot;fails&quot;</span> <span class="kw">else</span> moveFill n o 
+<span class="ot">&gt;</span>                          bnds <span class="fu">=</span> fillBounds n&#39;
 <span class="ot">&gt;</span>                          <span class="dt">Coord</span> (cx, cy) <span class="fu">=</span> boundsCentre bnds
 <span class="ot">&gt;</span>                          <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> bnds
 <span class="ot">&gt;</span>                          cs <span class="fu">=</span> [coordI x y <span class="fu">|</span> x <span class="ot">&lt;-</span> [(cx <span class="fu">-</span> ex) <span class="fu">..</span> (cx <span class="fu">+</span> ex)], y <span class="ot">&lt;-</span> [(cy <span class="fu">-</span> ey) <span class="fu">..</span> (cy <span class="fu">+</span> ey)]]
-<span class="ot">&gt;</span>                          <span class="kw">in</span> <span class="kw">if</span> col chk n cs <span class="kw">then</span> coordI <span class="dv">0</span> <span class="dv">0</span> <span class="kw">else</span> coordI <span class="dv">0</span> <span class="dv">0</span>
-<span class="ot">&gt;</span>         col chk n cs <span class="fu">=</span> undefined
+<span class="ot">&gt;</span>                          <span class="kw">in</span> <span class="kw">if</span> isOk chk n&#39; cs 
+<span class="ot">&gt;</span>                             <span class="kw">then</span> n&#39;
+<span class="ot">&gt;</span>                             <span class="kw">else</span> offset chk n (incOff o) (m<span class="fu">+</span><span class="dv">1</span>)
 <span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         isOk chk n cs <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                         bnds  <span class="fu">=</span> fillBounds n
+<span class="ot">&gt;</span>                         <span class="dt">Coord</span> (cx, cy) <span class="fu">=</span> boundsCentre bnds
+<span class="ot">&gt;</span>                         <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> bnds
+<span class="ot">&gt;</span>                         xOk <span class="fu">=</span> cx <span class="fu">&gt;=</span> ex <span class="fu">&amp;&amp;</span> cx <span class="fu">+</span> ex <span class="fu">&lt;=</span> w
+<span class="ot">&gt;</span>                         yOk <span class="fu">=</span> cy <span class="fu">&gt;=</span> ey <span class="fu">&amp;&amp;</span> cy <span class="fu">+</span> ey <span class="fu">&lt;=</span> h
+<span class="ot">&gt;</span>                         <span class="kw">in</span> xOk <span class="fu">&amp;&amp;</span> yOk <span class="fu">&amp;&amp;</span> (not <span class="fu">.</span> getAny <span class="fu">.</span> mconcat <span class="fu">.</span> map (<span class="dt">Any</span> <span class="fu">.</span> col chk n) <span class="fu">$</span> cs)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         col chk n c <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                          a <span class="fu">=</span> getLast <span class="fu">.</span> queryFill chk <span class="fu">$</span> c
+<span class="ot">&gt;</span>                          b <span class="fu">=</span> getLast <span class="fu">.</span> queryFill n <span class="fu">$</span> c
+<span class="ot">&gt;</span>                          <span class="kw">in</span> <span class="kw">case</span> (a,b) <span class="kw">of</span>
+<span class="ot">&gt;</span>                             (<span class="dt">Just</span> _, <span class="dt">Just</span> _) <span class="ot">-&gt;</span> <span class="dt">True</span>
+<span class="ot">&gt;</span>                             _                <span class="ot">-&gt;</span> <span class="dt">False</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         incOff (<span class="dt">Coord</span> (x,y)) <span class="fu">|</span> x <span class="fu">&gt;=</span> w <span class="fu">&amp;&amp;</span> y <span class="fu">&gt;=</span> h <span class="fu">=</span> <span class="dt">Coord</span> (<span class="dv">0</span>, <span class="dv">0</span>)
+<span class="ot">&gt;</span>                              <span class="fu">|</span> x <span class="fu">&gt;=</span> w           <span class="fu">=</span> <span class="dt">Coord</span> (<span class="dv">0</span>, y <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">&gt;</span>                              <span class="fu">|</span> otherwise        <span class="fu">=</span> <span class="dt">Coord</span> (x <span class="fu">+</span> <span class="dv">1</span>, y)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; randomBoard ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> (<span class="dt">StdGen</span>, [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)])
+<span class="ot">&gt;</span> randomBoard gen <span class="fu">=</span> 
+<span class="ot">&gt;</span>     <span class="kw">let</span> ship <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> map (\a <span class="ot">-&gt;</span> <span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span> destroyer <span class="kw">else</span> cruiser) <span class="fu">.</span> randomRs (<span class="dv">0</span><span class="ot"> ::</span> <span class="dt">Int</span>, <span class="dv">1</span><span class="ot"> ::</span> <span class="dt">Int</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>         orient <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> map (\a <span class="ot">-&gt;</span> <span class="kw">if</span> a <span class="fu">==</span> <span class="dv">0</span> <span class="kw">then</span> <span class="dt">ShipVertical</span> <span class="kw">else</span> <span class="dt">ShipHorizontal</span>) <span class="fu">.</span> randomRs (<span class="dv">0</span><span class="ot"> ::</span> <span class="dt">Int</span>, <span class="dv">1</span><span class="ot"> ::</span> <span class="dt">Int</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>         cxs <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> randomRs (<span class="dv">0</span>, <span class="dv">40</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>         cys <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> randomRs (<span class="dv">0</span>, <span class="dv">40</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>     <span class="kw">in</span> (mkStdGen <span class="fu">.</span> fst <span class="fu">.</span> random <span class="fu">$</span> gen, layoutBoard <span class="dv">40</span> <span class="dv">40</span> <span class="fu">.</span> take <span class="dv">5</span> <span class="fu">.</span> getZipList <span class="fu">$</span> ship <span class="fu">&lt;*&gt;</span> orient <span class="fu">&lt;*&gt;</span> (coordI <span class="fu">&lt;$&gt;</span> cxs <span class="fu">&lt;*&gt;</span> cys))
+<span class="ot">&gt;</span>        
+<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Game</span> <span class="fu">=</span> <span class="dt">Game</span> {<span class="ot"> ships     ::</span> [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)]
+<span class="ot">&gt;</span>                  ,<span class="ot"> board     ::</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">Char</span>)
+<span class="ot">&gt;</span>                  }
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; shipToBrd ::</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>) <span class="ot">-&gt;</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">Char</span>)
+<span class="ot">&gt;</span> shipToBrd s <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> (fmap produceChar) <span class="fu">.</span> getLast <span class="fu">&lt;$&gt;</span> s
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; drawBrd ::</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">Char</span>) <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> drawBrd <span class="fu">=</span> drawFillMatrix <span class="dv">40</span> <span class="dv">40</span>  
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; playNewGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> playNewGame gen <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                   (gen&#39;, ships) <span class="fu">=</span> randomBoard gen
+<span class="ot">&gt;</span>                   border <span class="fu">=</span> mconcat <span class="fu">$</span> map (fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span>) (coordI <span class="fu">&lt;$&gt;</span> [x <span class="fu">|</span> x <span class="ot">&lt;-</span> [<span class="dv">0</span>,<span class="dv">40</span>]] <span class="fu">&lt;*&gt;</span> [y <span class="fu">|</span> y <span class="ot">&lt;-</span> [<span class="dv">0</span>,<span class="dv">40</span>]]) 
+<span class="ot">&gt;</span>                   <span class="kw">in</span> playGame gen&#39; (<span class="dt">Game</span> ships border)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; wonGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> () 
+<span class="ot">&gt;</span> wonGame gen <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;You won the game. Play another ? &#39;y&#39;/&#39;n&#39;&quot;</span>
+<span class="ot">&gt;</span>     t <span class="ot">&lt;-</span> getLine
+<span class="ot">&gt;</span>     <span class="kw">case</span> filter (not <span class="fu">.</span> isSpace) t <span class="kw">of</span>
+<span class="ot">&gt;</span>         <span class="ch">&#39;y&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;Y&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;n&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         <span class="ch">&#39;N&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         _       <span class="ot">-&gt;</span> wonGame gen
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; cheatGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> cheatGame gen g <span class="fu">=</span> drawBrd (board g <span class="fu">&lt;&gt;</span> (mconcat <span class="fu">.</span> map shipToBrd <span class="fu">.</span> ships <span class="fu">$</span> g)) <span class="fu">&gt;&gt;</span> playGame gen g
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; takeShot ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> takeShot t gen g <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>     r <span class="fu">:</span> c <span class="fu">:</span> _ <span class="fu">=</span> map (read) (words t)
+<span class="ot">&gt;</span>     b <span class="fu">=</span> board g <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;X&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI r c) <span class="fu">&lt;&gt;</span> (mconcat <span class="fu">.</span> map shipToBrd <span class="fu">$</span> hit)
+<span class="ot">&gt;</span>     hit <span class="fu">=</span> filter (isJust <span class="fu">.</span> getLast <span class="fu">.</span> (\q <span class="ot">-&gt;</span> q (coordI r c)) <span class="fu">.</span> queryFill) (ships g)
+<span class="ot">&gt;</span>     miss <span class="fu">=</span> filter (not <span class="fu">.</span> isJust <span class="fu">.</span> getLast <span class="fu">.</span> (\q <span class="ot">-&gt;</span> q (coordI r c)) <span class="fu">.</span> queryFill) (ships g)
+<span class="ot">&gt;</span>     <span class="kw">in</span> playGame gen (<span class="dt">Game</span> miss b)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; playGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> playGame gen g <span class="fu">=</span> <span class="kw">if</span> win g <span class="kw">then</span> wonGame gen <span class="kw">else</span> <span class="kw">do</span> 
+<span class="ot">&gt;</span>     drawBrd <span class="fu">.</span> board <span class="fu">$</span> g    
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;Guess r c / Cheat &#39;c&#39; / New Game &#39;n&#39; / Quit &#39;q&#39;&quot;</span>
+<span class="ot">&gt;</span>     t <span class="ot">&lt;-</span> getLine
+<span class="ot">&gt;</span>     <span class="kw">case</span> filter (not <span class="fu">.</span> isSpace) t <span class="kw">of</span>
+<span class="ot">&gt;</span>         <span class="ch">&#39;c&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> cheatGame gen g
+<span class="ot">&gt;</span>         <span class="ch">&#39;C&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> cheatGame gen g
+<span class="ot">&gt;</span>         <span class="ch">&#39;n&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;N&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;Q&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         <span class="ch">&#39;q&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         _       <span class="ot">-&gt;</span> takeShot t gen g
+<span class="ot">&gt;</span>     <span class="kw">where</span> 
+<span class="ot">&gt;</span>        win (<span class="dt">Game</span> [] _) <span class="fu">=</span> <span class="dt">True</span>
+<span class="ot">&gt;</span>        win _ <span class="fu">=</span> <span class="dt">False</span>
+<span class="ot">&gt;</span>     
 <span class="ot">&gt;</span> 
 <span class="ot">&gt; main ::</span> <span class="dt">IO</span> ()
 <span class="ot">&gt;</span> main <span class="fu">=</span> <span class="kw">do</span>
-<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;myPicture&quot;</span>
-<span class="ot">&gt;</span>     myPicture
-<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;myDone&quot;</span>
-<span class="ot">&gt;</span>     myGameBoard
-<span class="ot">&gt;</span>     print <span class="fu">.</span> coordLength <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (<span class="dv">0</span>,<span class="dv">0</span>)
-<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;done&quot;</span></code></pre>
+<span class="ot">&gt;</span>     <span class="co">-- putStrLn &quot;myPicture&quot;</span>
+<span class="ot">&gt;</span>     <span class="co">-- myPicture</span>
+<span class="ot">&gt;</span>     <span class="co">-- putStrLn &quot;myDone&quot;</span>
+<span class="ot">&gt;</span>     <span class="co">-- myGameBoard</span>
+<span class="ot">&gt;</span>     <span class="co">-- myGameBoard2</span>
+<span class="ot">&gt;</span>     gen0 <span class="ot">&lt;-</span> getStdGen
+<span class="ot">&gt;</span>     <span class="co">-- let (gen1, b1) = randomBoard gen0</span>
+<span class="ot">&gt;</span>     <span class="co">-- drawFillMatrix 40 40 . mconcat $ b1</span>
+<span class="ot">&gt;</span>     <span class="co">-- let (gen2, b2) = randomBoard gen1</span>
+<span class="ot">&gt;</span>     <span class="co">-- drawFillMatrix 40 40 . mconcat $ b2</span>
+<span class="ot">&gt;</span>     playNewGame gen0
+<span class="ot">&gt;</span>     return ()</code></pre>
 </div>
 </body>
 </html>
