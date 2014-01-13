@@ -4,19 +4,18 @@
 
 Introduction
 ==========
-
-What will be covered
------------
-* Basic syntax of Haskell
 * First few type classes from the Typeclassopedia (Functor, Applicative and Monoid)
-
-How is it presented
------------------
-* As literate Haskell
-* Can press `A` and copy all the text to a `.lhs` file and run in GHCi
+    * Based on ideas from mathematics
+    * But don't be scared you don't need to be a mathematician
+    * It just means its well founded and you can build intuitively on it
+* Brief look at theory
+* Hands on example where the theory is put to use
 * Sample application making use of Functor, Applicative and Monoid
     * A basic ASCII art renderer
     * A basic battleship / mine sweeper game 
+* This is a literate Haskell file
+    * Can press `A` and copy all the text to a `.lhs` file and run in GHCi
+* Will try and cover a little bit of Haskell introduction / syntax
 
 
 Begin file
@@ -52,20 +51,116 @@ Typeclassopdedia Diagram
 
 Functor
 ===========
-
+* Most ubiquitous of Haskell typeclasses
+* Intuition 1 : 
+    * `Functor` is a "container"
+    * that can map a function over all elements
+    * not changing the structure
+* Intuition 2 : 
+    * `Functor` represents some "computational context" 
+    * with the ability to "lift" functions into the context.
+* Its definition : 
 ````haskell
 class Functor f where
+  -- Take function (a -> b) and return function f a -> f b
   fmap :: (a -> b) -> f a -> f b
 ````
+* infix operator `<$>` is a synonym for `fmap` ie 
+```haskell
+g <$> x == g `fmap` x == fmap g x
+```
+
+-------
+
+* The laws:
+    * mapping the identity function over every item in a container has no effect. 
+```haskell
+fmap id = id
+```
+    *  mapping a composition of two functions over every item in a container is the same as first mapping one function, and then mapping the other.
+```haskell
+fmap (g . h) = (fmap g) . (fmap h)
+```
+* Notable instances
+    * `(->) e` or functions `(e -> a)` are functors with element/contextual values of type `a`
+    * `IO` so you can modify the results of monadic actions using `fmap`
 
 Applicative
 =============
-
+* Lies between `Functor` and `Monad`
+* `Functor` lifts a "normal" function to some context but does not allow applying a function in a context to a value in a context
+* `Applicative` provides this by the lifted function application operator `<*>` 
+* Additionally provides `pure` to embed a value in an "effect free" context.
 ```haskell
 class Functor f => Applicative f where
   pure  :: a -> f a
   (<*>) :: f (a -> b) -> f a -> f b
 ```
+* `<*>` takes a function in context `f` and applies it to a value in context `f` returning a value in context `f`
+* `<*>` is similar to a lifted `$`
+
+----
+
+* The laws:
+    * The identity law:
+```haskell
+pure id <*> v = v
+````
+    * Homomorphism: Applying a non-effectful function to a non-effectful argument is the same as applying the function to the argument and then injecting into the context.
+```haskell
+pure f <*> pure x = pure (f x)
+```
+    * Interchange: When evaluating the application of an effectful function to a pure argument, the order does not matter
+```haskell
+u <*> pure y = pure ($ y) <*> u
+```
+    * Composition: The trickiest law to gain intuition for. Expressing a sort of associativity `<*>`
+```haskell
+u <*> (v <*> w) = pure (.) <*> u <*> v <*> w
+```
+    * relation to `fmap`: `fmap g x` is the same as lifting `g` using `pure` and applying to `x`
+```haskell
+fmap g x = pure g <*> x
+```
+
+Monoid
+==============
+* Extension of a semigroup (not covered here)
+* A monoid has 
+    * some associative binary operator i.e. `(a (+) b) (+) c == a (+) (b (+) c)`
+    * which does not have to be commutative i.e. `a (+) b == b (+) a` NOT REQUIRED.
+    * and which has some zero element related to the binary operator i.e. `a + 0 == a == 0 + a`
+* Think in terms of list concatenation or and accumulator  
+
+````haskell
+class Monoid a where
+  mempty  :: a
+  mappend :: a -> a -> a
+ 
+  mconcat :: [a] -> a
+  mconcat = foldr mappend mempty
+````
+
+* `mempty` is the empty element
+* `mappend` is the binary associative operation between two elements
+* `mconcat` is a convenience function which may be specialized and used to collapse a list of values using `mempty` and `mappend`
+* `<>` infix operator is a synonym for `mappend` ie `a <> b == mappend a b`
+
+----
+
+* The laws
+
+```haskell
+mempty `mappend` x = x
+x `mappend` mempty = x
+(x `mappend` y) `mappend` z = x `mappend` (y `mappend` z)
+```
+
+* Notable instances:
+    * `Monoid b => Monoid (a -> b)` or any function from `a` to `b` where `b` is a `Monoid` is also a `Monoid`
+        * The concatenation of a bunch of these functions essentially passes the same value to them all and combines 
+          result using `Monoid` instance of `b`
+
 
 Coord Type
 ==========

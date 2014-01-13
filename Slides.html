@@ -44,20 +44,25 @@ Handré Stolp
 </div>
 <div id="introduction" class="slide section level1">
 <h1>Introduction</h1>
-<h2 id="what-will-be-covered">What will be covered</h2>
 <ul>
-<li>Basic syntax of Haskell</li>
-<li>First few type classes from the Typeclassopedia (Functor, Applicative and Monoid)</li>
-</ul>
-<h2 id="how-is-it-presented">How is it presented</h2>
+<li>First few type classes from the Typeclassopedia (Functor, Applicative and Monoid)
 <ul>
-<li>As literate Haskell</li>
-<li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi</li>
+<li>Based on ideas from mathematics</li>
+<li>But don't be scared you don't need to be a mathematician</li>
+<li>It just means its well founded and you can build intuitively on it</li>
+</ul></li>
+<li>Brief look at theory</li>
+<li>Hands on example where the theory is put to use</li>
 <li>Sample application making use of Functor, Applicative and Monoid
 <ul>
 <li>A basic ASCII art renderer</li>
 <li>A basic battleship / mine sweeper game</li>
 </ul></li>
+<li>This is a literate Haskell file
+<ul>
+<li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi</li>
+</ul></li>
+<li>Will try and cover a little bit of Haskell introduction / syntax</li>
 </ul>
 </div>
 <div id="begin-file" class="slide section level1">
@@ -92,14 +97,118 @@ Handré Stolp
 </div>
 <div id="functor" class="slide section level1">
 <h1>Functor</h1>
+<ul>
+<li>Most ubiquitous of Haskell typeclasses</li>
+<li>Intuition 1 :
+<ul>
+<li><code>Functor</code> is a &quot;container&quot;</li>
+<li>that can map a function over all elements</li>
+<li>not changing the structure</li>
+</ul></li>
+<li>Intuition 2 :
+<ul>
+<li><code>Functor</code> represents some &quot;computational context&quot;</li>
+<li>with the ability to &quot;lift&quot; functions into the context.</li>
+</ul></li>
+<li><p>Its definition :</p>
 <pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="kw">where</span>
-<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
+  <span class="co">-- Take function (a -&gt; b) and return function f a -&gt; f b</span>
+<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></li>
+<li><p>infix operator <code>&lt;$&gt;</code> is a synonym for <code>fmap</code> ie</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">g <span class="fu">&lt;$&gt;</span> x <span class="fu">==</span> g <span class="ot">`fmap`</span> x <span class="fu">==</span> fmap g x</code></pre></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>The laws:
+<ul>
+<li><p>mapping the identity function over every item in a container has no effect.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">fmap id <span class="fu">=</span> id</code></pre></li>
+<li><p>mapping a composition of two functions over every item in a container is the same as first mapping one function, and then mapping the other.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">fmap (g <span class="fu">.</span> h) <span class="fu">=</span> (fmap g) <span class="fu">.</span> (fmap h)</code></pre></li>
+</ul></li>
+<li>Notable instances
+<ul>
+<li><code>(-&gt;) e</code> or functions <code>(e -&gt; a)</code> are functors with element/contextual values of type <code>a</code></li>
+<li><code>IO</code> so you can modify the results of monadic actions using <code>fmap</code></li>
+</ul></li>
+</ul>
 </div>
 <div id="applicative" class="slide section level1">
 <h1>Applicative</h1>
+<ul>
+<li>Lies between <code>Functor</code> and <code>Monad</code></li>
+<li><code>Functor</code> lifts a &quot;normal&quot; function to some context but does not allow applying a function in a context to a value in a context</li>
+<li><code>Applicative</code> provides this by the lifted function application operator <code>&lt;*&gt;</code></li>
+<li><p>Additionally provides <code>pure</code> to embed a value in an &quot;effect free&quot; context.</p>
 <pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Applicative</span> f <span class="kw">where</span>
 <span class="ot">  pure  ::</span> a <span class="ot">-&gt;</span> f a
-<span class="ot">  (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre>
+<span class="ot">  (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></li>
+<li><code>&lt;*&gt;</code> takes a function in context <code>f</code> and applies it to a value in context <code>f</code> returning a value in context <code>f</code></li>
+<li><p><code>&lt;*&gt;</code> is similar to a lifted <code>$</code></p></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>The laws:
+<ul>
+<li><p>The identity law:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">pure id <span class="fu">&lt;*&gt;</span> v <span class="fu">=</span> v</code></pre></li>
+<li><p>Homomorphism: Applying a non-effectful function to a non-effectful argument is the same as applying the function to the argument and then injecting into the context.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">pure f <span class="fu">&lt;*&gt;</span> pure x <span class="fu">=</span> pure (f x)</code></pre></li>
+<li><p>Interchange: When evaluating the application of an effectful function to a pure argument, the order does not matter</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">u <span class="fu">&lt;*&gt;</span> pure y <span class="fu">=</span> pure (<span class="fu">$</span> y) <span class="fu">&lt;*&gt;</span> u</code></pre></li>
+<li><p>Composition: The trickiest law to gain intuition for. Expressing a sort of associativity <code>&lt;*&gt;</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">u <span class="fu">&lt;*&gt;</span> (v <span class="fu">&lt;*&gt;</span> w) <span class="fu">=</span> pure (<span class="fu">.</span>) <span class="fu">&lt;*&gt;</span> u <span class="fu">&lt;*&gt;</span> v <span class="fu">&lt;*&gt;</span> w</code></pre></li>
+<li><p>relation to <code>fmap</code>: <code>fmap g x</code> is the same as lifting <code>g</code> using <code>pure</code> and applying to <code>x</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">fmap g x <span class="fu">=</span> pure g <span class="fu">&lt;*&gt;</span> x</code></pre></li>
+</ul></li>
+</ul>
+</div>
+<div id="monoid" class="slide section level1">
+<h1>Monoid</h1>
+<ul>
+<li>Extension of a semigroup (not covered here)</li>
+<li>A monoid has
+<ul>
+<li>some associative binary operator i.e. <code>(a (+) b) (+) c == a (+) (b (+) c)</code></li>
+<li>which does not have to be commutative i.e. <code>a (+) b == b (+) a</code> NOT REQUIRED.</li>
+<li>and which has some zero element related to the binary operator i.e. <code>a + 0 == a == 0 + a</code></li>
+</ul></li>
+<li>Think in terms of list concatenation or and accumulator</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Monoid</span> a <span class="kw">where</span>
+<span class="ot">  mempty  ::</span> a
+<span class="ot">  mappend ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+ 
+<span class="ot">  mconcat ::</span> [a] <span class="ot">-&gt;</span> a
+  mconcat <span class="fu">=</span> foldr mappend mempty</code></pre>
+<ul>
+<li><code>mempty</code> is the empty element</li>
+<li><code>mappend</code> is the binary associative operation between two elements</li>
+<li><code>mconcat</code> is a convenience function which may be specialized and used to collapse a list of values using <code>mempty</code> and <code>mappend</code></li>
+<li><code>&lt;&gt;</code> infix operator is a synonym for <code>mappend</code> ie <code>a &lt;&gt; b == mappend a b</code></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>The laws</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">mempty <span class="ot">`mappend`</span> x <span class="fu">=</span> x
+x <span class="ot">`mappend`</span> mempty <span class="fu">=</span> x
+(x <span class="ot">`mappend`</span> y) <span class="ot">`mappend`</span> z <span class="fu">=</span> x <span class="ot">`mappend`</span> (y <span class="ot">`mappend`</span> z)</code></pre>
+<ul>
+<li>Notable instances:
+<ul>
+<li><code>Monoid b =&gt; Monoid (a -&gt; b)</code> or any function from <code>a</code> to <code>b</code> where <code>b</code> is a <code>Monoid</code> is also a <code>Monoid</code>
+<ul>
+<li>The concatenation of a bunch of these functions essentially passes the same value to them all and combines result using <code>Monoid</code> instance of <code>b</code></li>
+</ul></li>
+</ul></li>
+</ul>
 </div>
 <div id="coord-type" class="slide section level1">
 <h1>Coord Type</h1>
