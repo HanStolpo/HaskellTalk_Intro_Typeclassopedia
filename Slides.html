@@ -8,7 +8,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="author" content="Handré Stolp" />
   <meta name="date" content="2014-01-13" />
-  <title>Haskell Basics and Typeclassopedia</title>
+  <title>Haskell Intro to the Typeclassopedia</title>
   <style type="text/css">code{white-space: pre;}</style>
   <style type="text/css">
 table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
@@ -36,7 +36,7 @@ code > span.er { color: #ff0000; font-weight: bold; }
 </head>
 <body>
 <div class="slide titlepage">
-  <h1 class="title">Haskell Basics and Typeclassopedia</h1>
+  <h1 class="title">Haskell Intro to the Typeclassopedia</h1>
   <p class="author">
 Handré Stolp
   </p>
@@ -50,6 +50,7 @@ Handré Stolp
 <li>Based on ideas from mathematics</li>
 <li>But don't be scared you don't need to be a mathematician</li>
 <li>It just means its well founded and you can build intuitively on it</li>
+<li>Simple things can compose powerfully.</li>
 </ul></li>
 <li>Brief look at theory</li>
 <li>Hands on example where the theory is put to use</li>
@@ -61,22 +62,16 @@ Handré Stolp
 <li>This is a literate Haskell file
 <ul>
 <li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi</li>
+<li>All code preceded by '&gt;' characters is executable code</li>
+<li>By necessity the whole source file is included in the slides</li>
 </ul></li>
-<li>Will try and cover a little bit of Haskell introduction / syntax</li>
 </ul>
 </div>
-<div id="begin-file" class="slide section level1">
-<h1>Begin file</h1>
-<ul>
-<li>File starts with a module declaration <code>module X where</code></li>
-<li>Name of module must be same as file name (except if module contains <code>main</code> then may differ)</li>
-<li>Module definition optionally preceded by language extension pragma <code>{-# LANGAGE x #-}</code></li>
-<li>Then import declarations <code>import x</code></li>
-</ul>
+<div id="the-module-declaration-and-imports" class="slide section level1">
+<h1>The module declaration and imports</h1>
 <pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FlexibleContexts #-}</span>
 <span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Slides</span> <span class="kw">where</span>
 <span class="ot">&gt;</span> 
-<span class="ot">&gt;</span> <span class="co">-- import Data.Functor      -- imported by prelude</span>
 <span class="ot">&gt;</span> <span class="kw">import</span> Control.Applicative
 <span class="ot">&gt;</span> <span class="kw">import</span> Control.Monad
 <span class="ot">&gt;</span> <span class="kw">import</span> Data.Monoid
@@ -84,6 +79,33 @@ Handré Stolp
 <span class="ot">&gt;</span> <span class="kw">import</span> Data.Char
 <span class="ot">&gt;</span> <span class="kw">import</span> Debug.Trace
 <span class="ot">&gt;</span> <span class="kw">import</span> System.Random</code></pre>
+</div>
+<div id="some-hints-to-follow-the-code" class="slide section level1">
+<h1>Some Hints to follow the code</h1>
+<ul>
+<li>Haskell has operator precedence 1 lowest to 9 highest either left associative right associative or neither</li>
+<li>You can define your own operator and associativity (1 to 9)</li>
+<li>Function application has the highest precedence 10 and is left associative</li>
+<li>You'll often see the explicit function application operator <code>$</code>, it just takes a function and applies a value to it but has very low level of associativity.
+<ul>
+<li><code>f $ g $ h x  =  f (g (h x))</code></li>
+</ul></li>
+<li>Quite often functions are composed using the function composition operator <code>.</code> which is <code>infixr 9</code>
+<ul>
+<li>You can see it as a pipeline of transformation applied to a value flowing through</li>
+</ul></li>
+<li>All functions in Haskell technically only take 1 parameter
+<ul>
+<li>If it takes multiple parameters it actually takes 1 parameter and returns a function</li>
+<li>Functions may be partially applied (you don't have to supply all the arguments)</li>
+</ul></li>
+<li>Don't look at code in a imperative sequential way but rather in an equational way.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">($) ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b
+f <span class="fu">$</span> x <span class="fu">=</span>  f x
+
+<span class="ot">(.)    ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+(<span class="fu">.</span>) f g <span class="fu">=</span> \x <span class="ot">-&gt;</span> f (g x)</code></pre>
 </div>
 <div id="typeclassopdedia-diagram" class="slide section level1">
 <h1>Typeclassopdedia Diagram</h1>
@@ -738,20 +760,35 @@ x <span class="ot">`mappend`</span> mempty <span class="fu">=</span> x
 <span class="ot">&gt;</span>                   border <span class="fu">=</span> mconcat <span class="fu">$</span> map (fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span>) (coordI <span class="fu">&lt;$&gt;</span> [<span class="dv">0</span>,<span class="dv">40</span>] <span class="fu">&lt;*&gt;</span> [<span class="dv">0</span>,<span class="dv">40</span>]) 
 <span class="ot">&gt;</span>                   <span class="co">-- and then we start the game</span>
 <span class="ot">&gt;</span>                   <span class="kw">in</span> playGame gen&#39; (<span class="dt">Game</span> ships border)</code></pre>
-<table>
-<col width="6%" />
-<tbody>
-<tr class="odd">
-<td align="left">* When we cheat in a game we momentarily show everything. * We use the <code>Monoid</code> append operator <code>&lt;&gt;</code> to combined the current <code>board</code> * with the list of <code>ships</code> flattened to a displayable <code>Fill</code> using * <code>mconcat</code> which flattens a list using <code>Monoid</code></td>
-</tr>
-<tr class="even">
-<td align="left">\begin{code} -- when we chose to cheat we show the board with all the ships on it and then continue playing cheatGame :: StdGen -&gt; Game -&gt; IO () cheatGame gen g = drawBrd (board g &lt;&gt; (mconcat . map shipToBrd . ships $ g)) &gt;&gt; playGame gen g</td>
-</tr>
-<tr class="odd">
-<td align="left">-- when we win the game we can choice to play a new one wonGame :: StdGen -&gt; IO () wonGame gen = do putStrLn &quot;You won the game. Play another ? 'y'/'n'&quot; t &lt;- getLine case filter (not . isSpace) t of 'y' : _ -&gt; playNewGame gen 'Y' : _ -&gt; playNewGame gen 'n' : _ -&gt; return () 'N' : _ -&gt; return () _ -&gt; wonGame gen \end{code}</td>
-</tr>
-</tbody>
-</table>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>When we cheat in a game we momentarily show everything.
+<ul>
+<li>We use the <code>Monoid</code> append operator <code>&lt;&gt;</code> to combined the current <code>board</code></li>
+<li>with the list of <code>ships</code> flattened to a displayable <code>Fill</code> using</li>
+<li><code>mconcat</code> which flattens a list using <code>Monoid</code></li>
+</ul></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">-- when we chose to cheat we show the board with all the ships on it and then continue playing</span>
+<span class="ot">&gt; cheatGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> cheatGame gen g <span class="fu">=</span> drawBrd (board g <span class="fu">&lt;&gt;</span> (mconcat <span class="fu">.</span> map shipToBrd <span class="fu">.</span> ships <span class="fu">$</span> g)) <span class="fu">&gt;&gt;</span> playGame gen g
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- when we win the game we can choice to play a new one</span>
+<span class="ot">&gt; wonGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> () 
+<span class="ot">&gt;</span> wonGame gen <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;You won the game. Play another ? &#39;y&#39;/&#39;n&#39;&quot;</span>
+<span class="ot">&gt;</span>     t <span class="ot">&lt;-</span> getLine
+<span class="ot">&gt;</span>     <span class="kw">case</span> filter (not <span class="fu">.</span> isSpace) t <span class="kw">of</span>
+<span class="ot">&gt;</span>         <span class="ch">&#39;y&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;Y&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;n&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         <span class="ch">&#39;N&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         _       <span class="ot">-&gt;</span> wonGame gen</code></pre>
+</div>
+<div class="slide section level1">
+
 <ul>
 <li>When we take a shot we again use <code>Monoid</code> append operator <code>&lt;&gt;</code> to update the board
 <ul>
@@ -775,9 +812,11 @@ x <span class="ot">`mappend`</span> mempty <span class="fu">=</span> x
 <span class="ot">&gt;</span>     <span class="co">-- Missed ships are those which do not produce at the coordinate</span>
 <span class="ot">&gt;</span>     miss <span class="fu">=</span> filter (not <span class="fu">.</span> produces) (ships g)
 <span class="ot">&gt;</span>     <span class="co">-- The new game state is all the missed ships and the updated board</span>
-<span class="ot">&gt;</span>     <span class="kw">in</span> playGame gen (<span class="dt">Game</span> miss b)
-<span class="ot">&gt;</span> 
-<span class="ot">&gt; playGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span>     <span class="kw">in</span> playGame gen (<span class="dt">Game</span> miss b)</code></pre>
+</div>
+<div class="slide section level1">
+
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; playGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
 <span class="ot">&gt;</span> playGame gen g <span class="fu">=</span> <span class="kw">if</span> win g <span class="kw">then</span> wonGame gen <span class="kw">else</span> <span class="kw">do</span> 
 <span class="ot">&gt;</span>     drawBrd <span class="fu">.</span> board <span class="fu">$</span> g    
 <span class="ot">&gt;</span>     putStrLn <span class="st">&quot;Guess r c / Cheat &#39;c&#39; / New Game &#39;n&#39; / Quit &#39;q&#39;&quot;</span>

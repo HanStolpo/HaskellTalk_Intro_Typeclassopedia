@@ -1,4 +1,4 @@
-% Haskell Basics and Typeclassopedia
+% Haskell Intro to the Typeclassopedia
 % Handré Stolp
 % January 13, 2014
 
@@ -8,6 +8,7 @@ Introduction
     * Based on ideas from mathematics
     * But don't be scared you don't need to be a mathematician
     * It just means its well founded and you can build intuitively on it
+    * Simple things can compose powerfully.
 * Brief look at theory
 * Hands on example where the theory is put to use
 * Sample application making use of Functor, Applicative and Monoid
@@ -15,21 +16,18 @@ Introduction
     * A basic battleship / mine sweeper game 
 * This is a literate Haskell file
     * Can press `A` and copy all the text to a `.lhs` file and run in GHCi
-* Will try and cover a little bit of Haskell introduction / syntax
+        * Well theoretically but just copying it does not leave a new line before each code block which causes errors.
+    * All code preceded by '>' characters is executable code
+    * By necessity the whole source file is included in the slides
 
 
-Begin file
+The module declaration and imports
 ==========
-* File starts with a module declaration `module X where`
-* Name of module must be same as file name (except if module contains `main` then may differ)
-* Module definition optionally preceded by language extension pragma `{-# LANGAGE x #-}`
-* Then import declarations `import x`
 
 \begin{code}
 {-# LANGUAGE FlexibleContexts #-}
 module Slides where
 
--- import Data.Functor      -- imported by prelude
 import Control.Applicative
 import Control.Monad
 import Data.Monoid
@@ -37,8 +35,29 @@ import Data.Maybe
 import Data.Char
 import Debug.Trace
 import System.Random
-
 \end{code}
+
+Some Hints to follow the code
+==============================
+* Haskell has operator precedence 1 lowest to 9 highest either left associative right associative or neither
+* You can define your own operator and associativity (1 to 9)
+* Function application has the highest precedence 10 and is left associative
+* You'll often see the explicit function application operator `$`, it just takes a function and applies a value to it but has very low level of associativity.
+    * `f $ g $ h x  =  f (g (h x))`
+* Quite often functions are composed using the function composition operator `.` which is `infixr 9`
+    * You can see it as a pipeline of transformation applied to a value flowing through
+* All functions in Haskell technically only take 1 parameter
+    * If it takes multiple parameters it actually takes 1 parameter and returns a function
+    * Functions may be partially applied (you don't have to supply all the arguments)
+* Don't look at code in a imperative sequential way but rather in an equational way.
+
+```haskell
+($) :: (a -> b) -> a -> b
+f $ x =  f x
+
+(.)    :: (b -> c) -> (a -> b) -> a -> c
+(.) f g = \x -> f (g x)
+```
 
 Typeclassopdedia Diagram
 ===========
@@ -664,7 +683,6 @@ shipToBrd s = Last . (fmap produceChar) . getLast <$> s
 -- Helper action that draws the game board for us
 drawBrd :: Fill Int (Last Char) -> IO ()
 drawBrd = drawFillMatrix 40 40  
-
 \end{code}
 
 ----
@@ -687,6 +705,7 @@ playNewGame gen = let
 \end{code}
 
 -----
+
 * When we cheat in a game we momentarily show everything. 
     * We use the `Monoid` append operator `<>` to combined the current `board`
     * with the list of `ships` flattened to a displayable `Fill` using
@@ -735,6 +754,11 @@ takeShot t gen g = let
     -- The new game state is all the missed ships and the updated board
     in playGame gen (Game miss b)
 
+\end{code}
+
+-----
+
+\begin{code}
 playGame :: StdGen -> Game -> IO ()
 playGame gen g = if win g then wonGame gen else do 
     drawBrd . board $ g    
