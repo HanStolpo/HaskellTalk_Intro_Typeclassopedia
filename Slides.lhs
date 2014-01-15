@@ -505,7 +505,50 @@ myPicture = drawFillMatrix 40 40 (border <> moveFill image (coordI 5 5))
 
 -----
 
-![Example ASCII image](ExampleImage.png)
+~~~~~
++                                                                              +
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                       XX                                       
+                               XXXXXXXXXXXXXXXXXX                               
+                           XXXXXXXXXXXXXXXXXXXXXXXXXX                           
+                         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                         
+                       XXXXXXXXXXXXXXXX##XXXXXXXXXXXXXXXX                       
+                     XXXXXXXXXXXX##############XXXXXXXXXXXX                     
+                     XXXXXXXXXX##################XXXXXXXXXX                     
+                   XXXXXXXXXX######################XXXXXXXXXX                   
+                   XXXXXXXX######$$$$$$$$$$$$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$$$  $$$$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$      $$$$######XXXXXXXX                   
+                 XXXXXXXX########$$          $$########XXXXXXXX                 
+                   XXXXXXXX######$$$$      $$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$$$  $$$$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$$$$$$$$$$$######XXXXXXXX                   
+                   XXXXXXXXXX######################XXXXXXXXXX                   
+                     XXXXXXXXXX##################XXXXXXXXXX                     
+                     XXXXXXXXXXXX##############XXXXXXXXXXXX                     
+                       XXXXXXXXXXXXXXXX##XXXXXXXXXXXXXXXX                       
+                         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                         
+                           XXXXXXXXXXXXXXXXXXXXXXXXXX                           
+                               XXXXXXXXXXXXXXXXXX                               
+                                       XX                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
++                                                                              +
+~~~~~
+
 
 
 Battleship
@@ -523,8 +566,51 @@ Battleship
 
 ----
 
+~~~~~~~
++                                                                              +
+ XX                                                                             
+                                                                                
+                                                                                
+                                                                                
+         XX                                                                     
+                                                                                
+                                                                                
+               XX                                                               
+                                       XX                                       
+                 CC                                                             
+               CCCCCCCCCCCC                                                     
+             CCCCCCCCCCCCCC                                                     
+               CCCCCCCCCCCC                                                     
+                 CC                                                             
+                                                                                
+                             CC                                                 
+                           CCCCCCCCCCCC                                         
+                         CCCCCCCCCCCCCC                                         
+                           CCCCCCCCCCCC                                         
+               XX            CC        XX                  XX                   
+                                                                                
+                                                                                
+                                                           XX                   
+                                                         DD                     
+                                                       DDDDDD                   
+                                                     DDDDDDDDDD                 
+                                                       DDDDDD                   
+                                                         DD    CC               
+                                                         DD  CCCCCCCCCCCC       
+                                                         DDCCCCCCCCCCCCCC       
+                                                       DDDDDDCCCCCCCCCCCC       
+                                                     DDDDDDDDDDCC               
+                                                       DDDDDD                   
+                                                         DD        XX           
+                                                                       CC       
+                                                                     CCCCCCCCCCC
+                                                                   CCCCCCCCCCCCC
+                                                                     CCCCCCCCCCC
+                                                                       CC       
++                                                                              +
+Guess r c / Cheat 'c' / New Game 'n' / Quit 'q'
+~~~~~~~
 
-![Example battleship board](ExampleBattleShipBoard.PNG)
 
 Defining ships
 ===================

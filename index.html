@@ -61,7 +61,10 @@ Handré Stolp
 </ul></li>
 <li>This is a literate Haskell file
 <ul>
-<li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi</li>
+<li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi
+<ul>
+<li>Well theoretically but just copying it does not leave a new line before each code block which causes errors.</li>
+</ul></li>
 <li>All code preceded by '&gt;' characters is executable code</li>
 <li>By necessity the whole source file is included in the slides</li>
 </ul></li>
@@ -557,9 +560,47 @@ x <span class="ot">`mappend`</span> mempty <span class="fu">=</span> x
 </div>
 <div class="slide section level1">
 
-<div class="figure">
-<img src="ExampleImage.png" alt="Example ASCII image" /><p class="caption">Example ASCII image</p>
-</div>
+<pre><code>+                                                                              +
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                       XX                                       
+                               XXXXXXXXXXXXXXXXXX                               
+                           XXXXXXXXXXXXXXXXXXXXXXXXXX                           
+                         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                         
+                       XXXXXXXXXXXXXXXX##XXXXXXXXXXXXXXXX                       
+                     XXXXXXXXXXXX##############XXXXXXXXXXXX                     
+                     XXXXXXXXXX##################XXXXXXXXXX                     
+                   XXXXXXXXXX######################XXXXXXXXXX                   
+                   XXXXXXXX######$$$$$$$$$$$$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$$$  $$$$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$      $$$$######XXXXXXXX                   
+                 XXXXXXXX########$$          $$########XXXXXXXX                 
+                   XXXXXXXX######$$$$      $$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$$$  $$$$$$######XXXXXXXX                   
+                   XXXXXXXX######$$$$$$$$$$$$$$######XXXXXXXX                   
+                   XXXXXXXXXX######################XXXXXXXXXX                   
+                     XXXXXXXXXX##################XXXXXXXXXX                     
+                     XXXXXXXXXXXX##############XXXXXXXXXXXX                     
+                       XXXXXXXXXXXXXXXX##XXXXXXXXXXXXXXXX                       
+                         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                         
+                           XXXXXXXXXXXXXXXXXXXXXXXXXX                           
+                               XXXXXXXXXXXXXXXXXX                               
+                                       XX                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
++                                                                              +</code></pre>
 </div>
 <div id="battleship" class="slide section level1">
 <h1>Battleship</h1>
@@ -578,9 +619,48 @@ x <span class="ot">`mappend`</span> mempty <span class="fu">=</span> x
 </div>
 <div class="slide section level1">
 
-<div class="figure">
-<img src="ExampleBattleShipBoard.PNG" alt="Example battleship board" /><p class="caption">Example battleship board</p>
-</div>
+<pre><code>+                                                                              +
+ XX                                                                             
+                                                                                
+                                                                                
+                                                                                
+         XX                                                                     
+                                                                                
+                                                                                
+               XX                                                               
+                                       XX                                       
+                 CC                                                             
+               CCCCCCCCCCCC                                                     
+             CCCCCCCCCCCCCC                                                     
+               CCCCCCCCCCCC                                                     
+                 CC                                                             
+                                                                                
+                             CC                                                 
+                           CCCCCCCCCCCC                                         
+                         CCCCCCCCCCCCCC                                         
+                           CCCCCCCCCCCC                                         
+               XX            CC        XX                  XX                   
+                                                                                
+                                                                                
+                                                           XX                   
+                                                         DD                     
+                                                       DDDDDD                   
+                                                     DDDDDDDDDD                 
+                                                       DDDDDD                   
+                                                         DD    CC               
+                                                         DD  CCCCCCCCCCCC       
+                                                         DDCCCCCCCCCCCCCC       
+                                                       DDDDDDCCCCCCCCCCCC       
+                                                     DDDDDDDDDDCC               
+                                                       DDDDDD                   
+                                                         DD        XX           
+                                                                       CC       
+                                                                     CCCCCCCCCCC
+                                                                   CCCCCCCCCCCCC
+                                                                     CCCCCCCCCCC
+                                                                       CC       
++                                                                              +
+Guess r c / Cheat &#39;c&#39; / New Game &#39;n&#39; / Quit &#39;q&#39;</code></pre>
 </div>
 <div id="defining-ships" class="slide section level1">
 <h1>Defining ships</h1>
