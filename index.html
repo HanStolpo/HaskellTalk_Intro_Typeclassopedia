@@ -1,0 +1,848 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <meta name="author" content="Handré Stolp" />
+  <meta name="date" content="2014-01-13" />
+  <title>Haskell Intro to the Typeclassopedia</title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+  </style>
+  <link rel="stylesheet" type="text/css" media="screen, projection, print"
+    href="http://www.w3.org/Talks/Tools/Slidy2/styles/slidy.css" />
+  <script src="http://www.w3.org/Talks/Tools/Slidy2/scripts/slidy.js"
+    charset="utf-8" type="text/javascript"></script>
+</head>
+<body>
+<div class="slide titlepage">
+  <h1 class="title">Haskell Intro to the Typeclassopedia</h1>
+  <p class="author">
+Handré Stolp
+  </p>
+  <p class="date">January 13, 2014</p>
+</div>
+<div id="introduction" class="slide section level1">
+<h1>Introduction</h1>
+<ul>
+<li>First few type classes from the Typeclassopedia (Functor, Applicative and Monoid)
+<ul>
+<li>Based on ideas from mathematics</li>
+<li>But don't be scared you don't need to be a mathematician</li>
+<li>It just means its well founded and you can build intuitively on it</li>
+<li>Simple things can compose powerfully.</li>
+</ul></li>
+<li>Brief look at theory</li>
+<li>Hands on example where the theory is put to use</li>
+<li>Sample application making use of Functor, Applicative and Monoid
+<ul>
+<li>A basic ASCII art renderer</li>
+<li>A basic battleship / mine sweeper game</li>
+</ul></li>
+<li>This is a literate Haskell file
+<ul>
+<li>Can press <code>A</code> and copy all the text to a <code>.lhs</code> file and run in GHCi</li>
+<li>All code preceded by '&gt;' characters is executable code</li>
+<li>By necessity the whole source file is included in the slides</li>
+</ul></li>
+</ul>
+</div>
+<div id="the-module-declaration-and-imports" class="slide section level1">
+<h1>The module declaration and imports</h1>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE FlexibleContexts #-}</span>
+<span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Slides</span> <span class="kw">where</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">import</span> Control.Applicative
+<span class="ot">&gt;</span> <span class="kw">import</span> Control.Monad
+<span class="ot">&gt;</span> <span class="kw">import</span> Data.Monoid
+<span class="ot">&gt;</span> <span class="kw">import</span> Data.Maybe
+<span class="ot">&gt;</span> <span class="kw">import</span> Data.Char
+<span class="ot">&gt;</span> <span class="kw">import</span> Debug.Trace
+<span class="ot">&gt;</span> <span class="kw">import</span> System.Random</code></pre>
+</div>
+<div id="some-hints-to-follow-the-code" class="slide section level1">
+<h1>Some Hints to follow the code</h1>
+<ul>
+<li>Haskell has operator precedence 1 lowest to 9 highest either left associative right associative or neither</li>
+<li>You can define your own operator and associativity (1 to 9)</li>
+<li>Function application has the highest precedence 10 and is left associative</li>
+<li>You'll often see the explicit function application operator <code>$</code>, it just takes a function and applies a value to it but has very low level of associativity.
+<ul>
+<li><code>f $ g $ h x  =  f (g (h x))</code></li>
+</ul></li>
+<li>Quite often functions are composed using the function composition operator <code>.</code> which is <code>infixr 9</code>
+<ul>
+<li>You can see it as a pipeline of transformation applied to a value flowing through</li>
+</ul></li>
+<li>All functions in Haskell technically only take 1 parameter
+<ul>
+<li>If it takes multiple parameters it actually takes 1 parameter and returns a function</li>
+<li>Functions may be partially applied (you don't have to supply all the arguments)</li>
+</ul></li>
+<li>Don't look at code in a imperative sequential way but rather in an equational way.</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">($) ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> b
+f <span class="fu">$</span> x <span class="fu">=</span>  f x
+
+<span class="ot">(.)    ::</span> (b <span class="ot">-&gt;</span> c) <span class="ot">-&gt;</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> c
+(<span class="fu">.</span>) f g <span class="fu">=</span> \x <span class="ot">-&gt;</span> f (g x)</code></pre>
+</div>
+<div id="typeclassopdedia-diagram" class="slide section level1">
+<h1>Typeclassopdedia Diagram</h1>
+<ul>
+<li>The following is verbatim from <a href="http://www.haskell.org/haskellwiki/Typeclassopedia">http://www.haskell.org/haskellwiki/Typeclassopedia</a> <img src="Typeclassopedia-diagram.png" alt="Diagram of Typeclassopedia" /></li>
+<li>Solid arrows point from the general to the specific; that is, if there is an arrow from Foo to Bar it means that every Bar is (or should be, or can be made into) a Foo.</li>
+<li>Dotted arrows indicate some other sort of relationship.</li>
+<li>Monad and ArrowApply are equivalent.</li>
+<li>Semigroup, Apply and Comonad are greyed out since they are not actually (yet?) in the standard Haskell libraries</li>
+</ul>
+</div>
+<div id="functor" class="slide section level1">
+<h1>Functor</h1>
+<ul>
+<li>Most ubiquitous of Haskell typeclasses</li>
+<li>Intuition 1 :
+<ul>
+<li><code>Functor</code> is a &quot;container&quot;</li>
+<li>that can map a function over all elements</li>
+<li>not changing the structure</li>
+</ul></li>
+<li>Intuition 2 :
+<ul>
+<li><code>Functor</code> represents some &quot;computational context&quot;</li>
+<li>with the ability to &quot;lift&quot; functions into the context.</li>
+</ul></li>
+<li><p>Its definition :</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="kw">where</span>
+  <span class="co">-- Take function (a -&gt; b) and return function f a -&gt; f b</span>
+<span class="ot">  fmap ::</span> (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></li>
+<li><p>infix operator <code>&lt;$&gt;</code> is a synonym for <code>fmap</code> ie</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">g <span class="fu">&lt;$&gt;</span> x <span class="fu">==</span> g <span class="ot">`fmap`</span> x <span class="fu">==</span> fmap g x</code></pre></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>The laws:
+<ul>
+<li><p>mapping the identity function over every item in a container has no effect.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">fmap id <span class="fu">=</span> id</code></pre></li>
+<li><p>mapping a composition of two functions over every item in a container is the same as first mapping one function, and then mapping the other.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">fmap (g <span class="fu">.</span> h) <span class="fu">=</span> (fmap g) <span class="fu">.</span> (fmap h)</code></pre></li>
+</ul></li>
+<li>Notable instances
+<ul>
+<li><code>(-&gt;) e</code> or functions <code>(e -&gt; a)</code> are functors with element/contextual values of type <code>a</code></li>
+<li><code>IO</code> so you can modify the results of monadic actions using <code>fmap</code></li>
+</ul></li>
+</ul>
+</div>
+<div id="applicative" class="slide section level1">
+<h1>Applicative</h1>
+<ul>
+<li>Lies between <code>Functor</code> and <code>Monad</code></li>
+<li><code>Functor</code> lifts a &quot;normal&quot; function to some context but does not allow applying a function in a context to a value in a context</li>
+<li><code>Applicative</code> provides this by the lifted function application operator <code>&lt;*&gt;</code></li>
+<li><p>Additionally provides <code>pure</code> to embed a value in an &quot;effect free&quot; context.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">Applicative</span> f <span class="kw">where</span>
+<span class="ot">  pure  ::</span> a <span class="ot">-&gt;</span> f a
+<span class="ot">  (&lt;*&gt;) ::</span> f (a <span class="ot">-&gt;</span> b) <span class="ot">-&gt;</span> f a <span class="ot">-&gt;</span> f b</code></pre></li>
+<li><code>&lt;*&gt;</code> takes a function in context <code>f</code> and applies it to a value in context <code>f</code> returning a value in context <code>f</code></li>
+<li><p><code>&lt;*&gt;</code> is similar to a lifted <code>$</code></p></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>The laws:
+<ul>
+<li><p>The identity law:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">pure id <span class="fu">&lt;*&gt;</span> v <span class="fu">=</span> v</code></pre></li>
+<li><p>Homomorphism: Applying a non-effectful function to a non-effectful argument is the same as applying the function to the argument and then injecting into the context.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">pure f <span class="fu">&lt;*&gt;</span> pure x <span class="fu">=</span> pure (f x)</code></pre></li>
+<li><p>Interchange: When evaluating the application of an effectful function to a pure argument, the order does not matter</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">u <span class="fu">&lt;*&gt;</span> pure y <span class="fu">=</span> pure (<span class="fu">$</span> y) <span class="fu">&lt;*&gt;</span> u</code></pre></li>
+<li><p>Composition: The trickiest law to gain intuition for. Expressing a sort of associativity <code>&lt;*&gt;</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">u <span class="fu">&lt;*&gt;</span> (v <span class="fu">&lt;*&gt;</span> w) <span class="fu">=</span> pure (<span class="fu">.</span>) <span class="fu">&lt;*&gt;</span> u <span class="fu">&lt;*&gt;</span> v <span class="fu">&lt;*&gt;</span> w</code></pre></li>
+<li><p>relation to <code>fmap</code>: <code>fmap g x</code> is the same as lifting <code>g</code> using <code>pure</code> and applying to <code>x</code></p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">fmap g x <span class="fu">=</span> pure g <span class="fu">&lt;*&gt;</span> x</code></pre></li>
+</ul></li>
+</ul>
+</div>
+<div id="monoid" class="slide section level1">
+<h1>Monoid</h1>
+<ul>
+<li>Extension of a semigroup (not covered here)</li>
+<li>A monoid has
+<ul>
+<li>some associative binary operator i.e. <code>(a (+) b) (+) c == a (+) (b (+) c)</code></li>
+<li>which does not have to be commutative i.e. <code>a (+) b == b (+) a</code> NOT REQUIRED.</li>
+<li>and which has some zero element related to the binary operator i.e. <code>a + 0 == a == 0 + a</code></li>
+</ul></li>
+<li>Think in terms of list concatenation or and accumulator</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">Monoid</span> a <span class="kw">where</span>
+<span class="ot">  mempty  ::</span> a
+<span class="ot">  mappend ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+ 
+<span class="ot">  mconcat ::</span> [a] <span class="ot">-&gt;</span> a
+  mconcat <span class="fu">=</span> foldr mappend mempty</code></pre>
+<ul>
+<li><code>mempty</code> is the empty element</li>
+<li><code>mappend</code> is the binary associative operation between two elements</li>
+<li><code>mconcat</code> is a convenience function which may be specialized and used to collapse a list of values using <code>mempty</code> and <code>mappend</code></li>
+<li><code>&lt;&gt;</code> infix operator is a synonym for <code>mappend</code> ie <code>a &lt;&gt; b == mappend a b</code></li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>The laws</li>
+</ul>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">mempty <span class="ot">`mappend`</span> x <span class="fu">=</span> x
+x <span class="ot">`mappend`</span> mempty <span class="fu">=</span> x
+(x <span class="ot">`mappend`</span> y) <span class="ot">`mappend`</span> z <span class="fu">=</span> x <span class="ot">`mappend`</span> (y <span class="ot">`mappend`</span> z)</code></pre>
+<ul>
+<li>Notable instances:
+<ul>
+<li><code>Monoid b =&gt; Monoid (a -&gt; b)</code> or any function from <code>a</code> to <code>b</code> where <code>b</code> is a <code>Monoid</code> is also a <code>Monoid</code>
+<ul>
+<li>The concatenation of a bunch of these functions essentially passes the same value to them all and combines result using <code>Monoid</code> instance of <code>b</code></li>
+</ul></li>
+</ul></li>
+</ul>
+</div>
+<div id="coord-type" class="slide section level1">
+<h1>Coord Type</h1>
+<ul>
+<li>We want a type to hold screen (x,y) co-ordinates</li>
+<li>Instead of using the built-in tuple type we wrap it in a <code>newtype</code>
+<ul>
+<li>More control</li>
+<li>Makes a new type that shares the wrapped type's runtime infrastructure</li>
+<li>No runtime cost</li>
+<li>May only have single value and single constructor</li>
+<li>Type constructor <code>Coord</code> maps from <code>(a,a)</code> to <code>Coord</code></li>
+<li>record accessor <code>unCoord</code> maps from <code>(a,a)</code> to <code>Coord</code></li>
+</ul></li>
+<li>We fix the tuple element types so that they are the same</li>
+<li>We define <code>show</code> for Coord to be the same <code>show</code> for tuple</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Coord</span> a <span class="fu">=</span> <span class="dt">Coord</span> {<span class="ot">unCoord ::</span> (a,a)} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Coord</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> unCoord</code></pre>
+</div>
+<div id="coord-functor" class="slide section level1">
+<h1>Coord Functor</h1>
+<ul>
+<li>We give <code>Coord</code> a <code>Functor</code> instance</li>
+<li>It applies the function to each element</li>
+<li>Will allow us to lift functions to work on <code>Coord</code></li>
+<li>Will come in useful later</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> <span class="dt">Coord</span>  <span class="kw">where</span>
+<span class="ot">&gt;</span>     fmap f (<span class="dt">Coord</span> (x,y)) <span class="fu">=</span> <span class="dt">Coord</span> (f x, f y)</code></pre>
+</div>
+<div id="coord-applicative" class="slide section level1">
+<h1>Coord Applicative</h1>
+<ul>
+<li><code>Applicative</code> instance allows us to apply lifted function to values in <code>Coord</code> context</li>
+<li><code>pure</code> fills both elements with the same value</li>
+<li><code>&lt;*&gt;</code> applies the functions in each element of LHS <code>Coord</code> to values in RHS <code>Coord</code> respectively</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Applicative</span> <span class="dt">Coord</span> <span class="kw">where</span>
+<span class="ot">&gt;</span>     pure a <span class="fu">=</span> <span class="dt">Coord</span> (a,a)
+<span class="ot">&gt;</span>     <span class="dt">Coord</span> (g, h) <span class="fu">&lt;*&gt;</span> <span class="dt">Coord</span> (x, y) <span class="fu">=</span> <span class="dt">Coord</span> (g x, h y)</code></pre>
+</div>
+<div id="coord-monoid" class="slide section level1">
+<h1>Coord Monoid</h1>
+<ul>
+<li>We only have a <code>Monoid</code> instance if the element type has one</li>
+<li><code>mempty</code> is just <code>mempty</code> for the element type</li>
+<li><code>mappend</code> is just <code>mappend</code> for the element type applied per element respectively</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Monoid</span> a <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Coord</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span>    mempty <span class="fu">=</span> <span class="dt">Coord</span> (mempty, mempty)
+<span class="ot">&gt;</span>    <span class="dt">Coord</span> (lx, ly) <span class="ot">`mappend`</span> <span class="dt">Coord</span> (rx, ry) <span class="fu">=</span> <span class="dt">Coord</span> (lx <span class="fu">&lt;&gt;</span> rx, ly <span class="fu">&lt;&gt;</span> ry)</code></pre>
+</div>
+<div id="coord-operators" class="slide section level1">
+<h1>Coord Operators</h1>
+<ul>
+<li>We add our own operators for adding and subtracting <code>Coord</code> values</li>
+<li>We restrict the operators to only be available if the element type is of class <code>Num</code>
+<ul>
+<li><code>Num</code> gives access to <code>+</code> and <code>-</code></li>
+</ul></li>
+<li>We give them the same operator precedence as <code>+</code> and <code>-</code></li>
+<li>Because <code>Coord</code> is of class <code>Applicative</code> we can define the operations by lifting <code>+</code> and <code>-</code>
+<ul>
+<li>Lift <code>+</code> and apply to <code>a</code> (<code>(+) &lt;$&gt; a</code>)</li>
+<li>Apply the partially applied function in <code>Coord</code> to <code>b</code> (<code>&lt;*&gt; b</code>)</li>
+</ul></li>
+<li>Clean and clear</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; (|+|) ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a
+<span class="ot">&gt;</span> <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|+|</span>
+<span class="ot">&gt;</span> a <span class="fu">|+|</span> b <span class="fu">=</span> (<span class="fu">+</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; (|-|) ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Coord</span> a
+<span class="ot">&gt;</span> <span class="kw">infixl</span> <span class="dv">6</span> <span class="fu">|-|</span>
+<span class="ot">&gt;</span> a <span class="fu">|-|</span> b <span class="fu">=</span> (<span class="fu">-</span>) <span class="fu">&lt;$&gt;</span> a <span class="fu">&lt;*&gt;</span> b</code></pre>
+<ul>
+<li>Helper function to give the length of the co-ordinate
+<ul>
+<li>Notice <code>realToFrac</code>, its used to coerce any real number to a fractional (for <code>sqrt</code>)
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; coordLength ::</span> (<span class="dt">Real</span> a, <span class="dt">Floating</span> b) <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> b
+<span class="ot">&gt;</span> coordLength (<span class="dt">Coord</span> (x, y)) <span class="fu">=</span> sqrt <span class="fu">.</span> realToFrac <span class="fu">$</span> x <span class="fu">*</span> x <span class="fu">+</span> y <span class="fu">*</span> y</code></pre></li>
+</ul></li>
+</ul>
+</div>
+<div id="extents-type" class="slide section level1">
+<h1>Extents Type</h1>
+<ul>
+<li>When working with rectangular bounds we want a centre and an extent</li>
+<li>An extent must always be positive and is half the width and height of the bounding rectangle</li>
+<li>But extents are usually going to be applied to <code>Coord</code> values</li>
+<li>We <code>newtype</code> wrap <code>Coord</code> to create <code>Extent</code>
+<ul>
+<li>This limits operations on <code>Extents</code></li>
+<li>We ignore <code>Extents</code> data constrcutor and use <code>extentsFromCoord</code> which forces absolute values</li>
+<li>Ideally you would not export the <code>Extents</code> constructor from the module</li>
+</ul></li>
+<li><code>extentsFromCoord</code> maps <code>Coord</code> to <code>Extents</code></li>
+<li>record member accessor <code>coordFromExtents</code> maps <code>Extents</code> to <code>Coord</code></li>
+<li>Notice that we chain the <code>Extents</code> constructor with the lifted <code>abs</code> function over <code>Coord</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">newtype</span> <span class="dt">Extents</span> a <span class="fu">=</span> <span class="dt">Extents</span> {<span class="ot">coordFromExtents ::</span> <span class="dt">Coord</span> a} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Ord</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; extentsFromCoord ::</span> <span class="dt">Num</span> a <span class="ot">=&gt;</span> <span class="dt">Coord</span> a <span class="ot">-&gt;</span> <span class="dt">Extents</span> a
+<span class="ot">&gt;</span> extentsFromCoord c <span class="fu">=</span> <span class="dt">Extents</span> <span class="fu">.</span> fmap abs <span class="fu">$</span> c
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> <span class="dt">Show</span> (<span class="dt">Extents</span> a) <span class="kw">where</span> show <span class="fu">=</span> show <span class="fu">.</span> coordFromExtents</code></pre>
+</div>
+<div id="bounds-type" class="slide section level1">
+<h1>Bounds Type</h1>
+<ul>
+<li>We represent a <code>Bounds</code> as a centre with an extents</li>
+<li>It is parametric in the element type of <code>Coord</code> and <code>Extents</code></li>
+<li>We add a <code>Monoid</code> instance so that <code>Bounds</code> may accumulate into larger <code>Bounds</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Bounds</span> a <span class="fu">=</span> <span class="dt">Bounds</span> {<span class="ot"> boundsCentre ::</span> <span class="dt">Coord</span> a
+<span class="ot">&gt;</span>                        ,<span class="ot"> boundsExtent ::</span> <span class="dt">Extents</span> a
+<span class="ot">&gt;</span>                        }  <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>)</code></pre>
+<ul>
+<li>We need to specify how element types can be divided</li>
+<li>for this we add the <code>Divisor</code> class and specialize it for the numeric types</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">Divisor</span> a <span class="kw">where</span><span class="ot"> divideBy&#39; ::</span> a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> a
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Double</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> (<span class="fu">/</span>)
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Float</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> (<span class="fu">/</span>)
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Int</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> div
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Divisor</span> <span class="dt">Integer</span> <span class="kw">where</span> divideBy&#39; <span class="fu">=</span> div</code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>Our <code>Monoid</code> instance requires that the element type be in <code>Divisor</code>, <code>Num</code> and <code>Eq</code> so that all operations can be performed.</li>
+<li>Empty bounds has zero extents</li>
+<li>The 'sum' of 2 bounds is the average of their centres and the sum of their extents</li>
+<li>Since <code>Coord</code> is <code>Applicative</code> notice how we can lift <code>divideBy</code> to work on the result of <code>|+|</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> (<span class="dt">Divisor</span> a, <span class="dt">Num</span> a, <span class="dt">Eq</span> a) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Bounds</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     <span class="co">-- A zero extents bounds is considered empty</span>
+<span class="ot">&gt;</span>     mempty <span class="fu">=</span> <span class="dt">Bounds</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>)) (extentsFromCoord <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (<span class="dv">0</span>,<span class="dv">0</span>))
+<span class="ot">&gt;</span>     <span class="co">-- Appending empty to anything does not change it</span>
+<span class="ot">&gt;</span>     <span class="dt">Bounds</span> _ (<span class="dt">Extents</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>))) <span class="ot">`mappend`</span> r <span class="fu">=</span> r
+<span class="ot">&gt;</span>     l <span class="ot">`mappend`</span> <span class="dt">Bounds</span> _ (<span class="dt">Extents</span> (<span class="dt">Coord</span> (<span class="dv">0</span>,<span class="dv">0</span>))) <span class="fu">=</span> l
+<span class="ot">&gt;</span>     <span class="co">-- Appending two non empties</span>
+<span class="ot">&gt;</span>     l <span class="ot">`mappend`</span> r <span class="fu">=</span> <span class="dt">Bounds</span> c <span class="fu">$</span> extentsFromCoord e
+<span class="ot">&gt;</span>         <span class="kw">where</span>
+<span class="ot">&gt;</span>             <span class="co">-- centre is the average of the two centres</span>
+<span class="ot">&gt;</span>             c <span class="fu">=</span> (<span class="ot">`divideBy&#39;`</span><span class="dv">2</span>) <span class="fu">&lt;$&gt;</span> boundsCentre l <span class="fu">|+|</span> boundsCentre r
+<span class="ot">&gt;</span>             <span class="co">-- extents is the sum of the two extents</span>
+<span class="ot">&gt;</span>             e <span class="fu">=</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> l) <span class="fu">|+|</span> (coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> r)</code></pre>
+</div>
+<div id="convenience-integer-typedefs" class="slide section level1">
+<h1>Convenience Integer Typedefs</h1>
+<ul>
+<li><code>coordI</code> constructor for <code>Int</code> based <code>Coord</code> values.</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">CoordI</span> <span class="fu">=</span> <span class="dt">Coord</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">ExtentsI</span> <span class="fu">=</span> <span class="dt">Extents</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> <span class="kw">type</span> <span class="dt">BoundsI</span> <span class="fu">=</span> <span class="dt">Bounds</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; coordI ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Coord</span> <span class="dt">Int</span>
+<span class="ot">&gt;</span> coordI x y <span class="fu">=</span> <span class="dt">Coord</span> (x,y)</code></pre>
+</div>
+<div id="fill-type" class="slide section level1">
+<h1>Fill Type</h1>
+<ul>
+<li>We want to define how to draw to 2D area</li>
+<li>We also want to associate arbitrary data with 2D area</li>
+<li>We define the data type <code>Fill</code> based on some <code>Coord</code> element type <code>c</code> and some value <code>a</code>
+<ul>
+<li>It fills a 2D area with values : <code>queryFill</code> maps <code>Coord</code> inputs to some value <code>a</code></li>
+<li>It has an associated bounds : <code>fillBounds</code></li>
+<li>It is possible to move a <code>Fill</code> around : <code>moveFill</code></li>
+</ul></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Fill</span> c a <span class="fu">=</span> <span class="dt">Fill</span>  {<span class="ot"> queryFill  ::</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> a
+<span class="ot">&gt;</span>                       ,<span class="ot"> fillBounds ::</span> <span class="dt">Bounds</span> c
+<span class="ot">&gt;</span>                       ,<span class="ot"> moveFill   ::</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
+<span class="ot">&gt;</span>                       }</code></pre>
+</div>
+<div id="fill-functor-and-monoid" class="slide section level1">
+<h1>Fill Functor and Monoid</h1>
+<ul>
+<li>We make <code>Fill c</code> a <code>Functor</code> so that the associated values may be modified.</li>
+<li>The functor instance retains the bounds (i.e. position does not change)</li>
+<li>Since <code>(-&gt;) a</code> is an instance of <code>Functor</code> we just <code>fmap</code> <code>g</code> over <code>q</code> to get the modified query.
+<ul>
+<li>Changes the output of the current query by passing it through the function being mapped.</li>
+</ul></li>
+<li>Similarly <code>moveFill</code> is a <code>Functor</code> but its result is also a <code>Fucntor</code> so we just lift the function twice to get the new move.</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">Functor</span> (<span class="dt">Fill</span> c) <span class="kw">where</span>
+<span class="ot">&gt;</span>     fmap g <span class="dt">Fill</span>  { queryFill <span class="fu">=</span> q
+<span class="ot">&gt;</span>                  , fillBounds <span class="fu">=</span> b
+<span class="ot">&gt;</span>                  , moveFill <span class="fu">=</span> m
+<span class="ot">&gt;</span>                  } <span class="fu">=</span> <span class="dt">Fill</span> (fmap g q)            <span class="co">-- map g over q to get new query</span>
+<span class="ot">&gt;</span>                           b 
+<span class="ot">&gt;</span>                           ((fmap <span class="fu">.</span> fmap) g m)   <span class="co">-- lift g twice before applying to m to the new move function</span></code></pre>
+<ul>
+<li><code>Fill</code> has a <code>Monoid</code> instance given that
+<ul>
+<li><code>Bounds</code> has a <code>Monoid</code> instance for the co-ordinate type <code>c</code></li>
+<li>and the value type <code>a</code> has a <code>Monoid</code> instance</li>
+</ul></li>
+<li>Since <code>(-&gt;) a</code> has a <code>Monoid</code> instance just 'concat' the query functions and the move functions</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">instance</span> (<span class="dt">Monoid</span> a, <span class="dt">Monoid</span> (<span class="dt">Bounds</span> c)) <span class="ot">=&gt;</span> <span class="dt">Monoid</span> (<span class="dt">Fill</span> c a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     mempty <span class="fu">=</span> <span class="dt">Fill</span> (const mempty) mempty (const mempty)
+<span class="ot">&gt;</span>     a <span class="ot">`mappend`</span> b <span class="fu">=</span> <span class="dt">Fill</span> (queryFill a <span class="fu">&lt;&gt;</span> queryFill b)       <span class="co">-- concat the result of the query</span>
+<span class="ot">&gt;</span>                          (fillBounds a <span class="fu">&lt;&gt;</span> fillBounds b)     <span class="co">-- sum the bounds</span>
+<span class="ot">&gt;</span>                          (moveFill a <span class="fu">&lt;&gt;</span> moveFill b)         <span class="co">-- concat the results of the move</span></code></pre>
+</div>
+<div id="filling-primitives" class="slide section level1">
+<h1>Filling Primitives</h1>
+<ul>
+<li>Two primitives, a circle and a rectangle</li>
+<li>Both primitives require <code>(Real c, Divisor c, Monoid a)</code>
+<ul>
+<li>that the coordinate element type be real and divisable (for <code>Monoid</code> instance of bounds)</li>
+<li>and that <code>Monoid</code> instance exists for result value of the fill</li>
+</ul></li>
+<li>Circle takes some value a radius and a position and produces a value when the coordinate is within the radius</li>
+<li>Rectangle takes some value a width, height and a position and produces a value when the coordinate is within the bounds</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; fillCircle ::</span> (<span class="dt">Real</span> c, <span class="dt">Divisor</span> c, <span class="dt">Monoid</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
+<span class="ot">&gt;</span> fillCircle val radius pos <span class="fu">=</span> <span class="dt">Fill</span> qry bnds mv
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>     <span class="co">-- When the coordinate is within the radius distance from the centre produce</span>
+<span class="ot">&gt;</span>     qry crd <span class="fu">|</span> coordLength (crd <span class="fu">|-|</span> pos) <span class="fu">&lt;=</span> realToFrac radius  <span class="fu">=</span> val
+<span class="ot">&gt;</span>             <span class="fu">|</span> otherwise                                       <span class="fu">=</span> mempty
+<span class="ot">&gt;</span>     <span class="co">-- The bounds is a square centred around the position</span>
+<span class="ot">&gt;</span>     bnds <span class="fu">=</span> <span class="dt">Bounds</span> pos (<span class="dt">Extents</span> <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (radius, radius))
+<span class="ot">&gt;</span>     <span class="co">-- Moving it construct circle with new centre</span>
+<span class="ot">&gt;</span>     mv pos&#39; <span class="fu">=</span> fillCircle val radius (pos <span class="fu">|+|</span> pos&#39;) 
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; fillRectangle ::</span> (<span class="dt">Real</span> c, <span class="dt">Divisor</span> c, <span class="dt">Monoid</span> a) <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> c <span class="ot">-&gt;</span> <span class="dt">Coord</span> c <span class="ot">-&gt;</span> <span class="dt">Fill</span> c a
+<span class="ot">&gt;</span> fillRectangle val w h pos <span class="fu">=</span> <span class="dt">Fill</span> qry bnds mv
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>     <span class="co">-- When the coordinate is within bounds of the rectangle produce</span>
+<span class="ot">&gt;</span>     qry crd <span class="fu">|</span> <span class="kw">let</span> (x, y) <span class="fu">=</span> unCoord <span class="fu">$</span> abs <span class="fu">&lt;$&gt;</span> (crd <span class="fu">|-|</span> pos) 
+<span class="ot">&gt;</span>                   <span class="kw">in</span> x <span class="fu">&lt;=</span> halfW <span class="fu">&amp;&amp;</span> y <span class="fu">&lt;=</span> halfH       <span class="fu">=</span> val
+<span class="ot">&gt;</span>             <span class="fu">|</span> otherwise                             <span class="fu">=</span> mempty
+<span class="ot">&gt;</span>     halfW <span class="fu">=</span> w <span class="ot">`divideBy&#39;`</span> <span class="dv">2</span>
+<span class="ot">&gt;</span>     halfH <span class="fu">=</span> h <span class="ot">`divideBy&#39;`</span> <span class="dv">2</span>
+<span class="ot">&gt;</span>     <span class="co">-- the rectangle is its bounds</span>
+<span class="ot">&gt;</span>     bnds <span class="fu">=</span> <span class="dt">Bounds</span> pos (<span class="dt">Extents</span> <span class="fu">.</span> <span class="dt">Coord</span> <span class="fu">$</span> (halfW, halfH))
+<span class="ot">&gt;</span>     <span class="co">-- Moving it constructs a new rectangle centred on the new position</span>
+<span class="ot">&gt;</span>     mv pos&#39; <span class="fu">=</span> fillRectangle val w h (pos <span class="fu">|+|</span> pos&#39;) </code></pre>
+</div>
+<div id="drawing-ascii" class="slide section level1">
+<h1>Drawing ASCII</h1>
+<ul>
+<li>We can draw to the text buffer any <code>Fill</code> for which the produced value can map to a character</li>
+<li>We embody it through the <code>ProduceChar</code> type class</li>
+<li>We add convenience instances for
+<ul>
+<li><code>Char</code></li>
+<li>Any <code>Maybe</code> type for which <code>a</code> embodies <code>ProduceChar</code></li>
+<li>Any <code>Last</code> type for which <code>a</code> embodies <code>ProduceChar</code></li>
+</ul></li>
+<li><code>Last</code> is a <code>newtype</code> wrapper around <code>Maybe</code> giving a <code>Monoid</code> instance taking the last produced value if any.</li>
+<li>Since we are going to use <code>Last Char</code> a lot we add a helper for it</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">class</span> <span class="dt">ProduceChar</span> a <span class="kw">where</span><span class="ot"> produceChar ::</span> a <span class="ot">-&gt;</span> <span class="dt">Char</span> <span class="co">-- map some value to a Char</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> <span class="dt">Char</span> <span class="kw">where</span> 
+<span class="ot">&gt;</span>     produceChar <span class="fu">=</span> id    <span class="co">-- always produces itself (hence id)</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> a <span class="ot">=&gt;</span> <span class="dt">ProduceChar</span> (<span class="dt">Maybe</span> a) <span class="kw">where</span>
+<span class="ot">&gt;</span>     produceChar <span class="dt">Nothing</span>   <span class="fu">=</span> <span class="ch">&#39; &#39;</span>             <span class="co">-- when nothing produce space</span>
+<span class="ot">&gt;</span>     produceChar (<span class="dt">Just</span> a) <span class="fu">=</span> produceChar a    <span class="co">-- when something produce the related Char</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> a <span class="ot">=&gt;</span> <span class="dt">ProduceChar</span> (<span class="dt">Last</span> a) <span class="kw">where</span> 
+<span class="ot">&gt;</span>     produceChar <span class="fu">=</span> produceChar <span class="fu">.</span> getLast
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; lastChar ::</span> <span class="dt">Char</span> <span class="ot">-&gt;</span> <span class="dt">Last</span> <span class="dt">Char</span>
+<span class="ot">&gt;</span> lastChar <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> <span class="dt">Just</span></code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>We then draw a matrix of character to standard out by querying each character position for the produced char</li>
+<li>It takes a width, a height and some <code>Fill</code> to say how the matrix should be filled</li>
+<li>It draws 2 characters per column to get a more square looking picture</li>
+<li>Notice that to turn a fill into something that produces characters we just <code>fmap</code> the function <code>produceChar</code> over the <code>Fill</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; drawFillMatrix ::</span> <span class="dt">ProduceChar</span> a <span class="ot">=&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Fill</span> <span class="dt">Int</span> a <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> drawFillMatrix cs ls fl <span class="fu">=</span> putStrLn <span class="fu">$</span> ios cs2 ls
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>         cs2      <span class="fu">=</span> cs <span class="fu">*</span> <span class="dv">2</span>
+<span class="ot">&gt;</span>         <span class="co">-- we map produceChar over the result of the query</span>
+<span class="ot">&gt;</span>         flToChar <span class="fu">=</span> queryFill <span class="fu">.</span> fmap produceChar <span class="fu">$</span> fl    
+<span class="ot">&gt;</span>         ios <span class="dv">0</span> <span class="dv">0</span>  <span class="fu">=</span> []
+<span class="ot">&gt;</span>         <span class="co">-- end of each line we add a new line</span>
+<span class="ot">&gt;</span>         ios <span class="dv">0</span> l  <span class="fu">=</span> <span class="ch">&#39;\n&#39;</span> <span class="fu">:</span> ios cs2 (l<span class="fu">-</span><span class="dv">1</span>)
+<span class="ot">&gt;</span>         <span class="co">-- we iterate over the coordinates in our matrix</span>
+<span class="ot">&gt;</span>         ios c l  <span class="fu">=</span> (flToChar <span class="fu">$</span> <span class="dt">Coord</span> (cs <span class="fu">-</span> c <span class="ot">`div`</span> <span class="dv">2</span>, ls <span class="fu">-</span> l)) <span class="fu">:</span> ios (c<span class="fu">-</span><span class="dv">1</span>) l</code></pre>
+</div>
+<div id="example-picture" class="slide section level1">
+<h1>Example Picture</h1>
+<ul>
+<li>Here is an example picture being drawn</li>
+<li>It draws <code>'+'</code> in the corners of the character matrix</li>
+<li>Then draws the layering of a circle of <code>'X'</code> then <code>'#'</code>, then rectangle of <code>'$'</code> and finally a circle of <code>' '</code></li>
+<li>The whole circle is also move 5 spaces left and down</li>
+<li>Notice that we layer the <code>Fill</code> values using the <code>Monoid</code> append operator <code>&lt;&gt;</code>
+<ul>
+<li>The result is one <code>Fill</code> that maps different coordinates to different characters</li>
+</ul></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; myPicture ::</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> myPicture <span class="fu">=</span> drawFillMatrix <span class="dv">40</span> <span class="dv">40</span> (border <span class="fu">&lt;&gt;</span> moveFill image (coordI <span class="dv">5</span> <span class="dv">5</span>))
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>         border <span class="fu">=</span>  fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">0</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">40</span> <span class="dv">40</span>)
+<span class="ot">&gt;</span>                <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">40</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI <span class="dv">0</span> <span class="dv">40</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         image <span class="fu">=</span>  fillCircle    (lastChar <span class="ch">&#39;X&#39;</span>) <span class="dv">11</span>  (coordI <span class="dv">15</span> <span class="dv">15</span>)
+<span class="ot">&gt;</span>               <span class="fu">&lt;&gt;</span> fillCircle    (lastChar <span class="ch">&#39;#&#39;</span>) <span class="dv">7</span>   (coordI <span class="dv">15</span> <span class="dv">15</span>)
+<span class="ot">&gt;</span>               <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;$&#39;</span>) <span class="dv">6</span> <span class="dv">6</span> (coordI <span class="dv">15</span> <span class="dv">15</span>)
+<span class="ot">&gt;</span>               <span class="fu">&lt;&gt;</span> fillCircle    (lastChar <span class="ch">&#39; &#39;</span>) <span class="dv">2</span>   (coordI <span class="dv">15</span> <span class="dv">15</span>)</code></pre>
+</div>
+<div class="slide section level1">
+
+<div class="figure">
+<img src="ExampleImage.png" alt="Example ASCII image" /><p class="caption">Example ASCII image</p>
+</div>
+</div>
+<div id="battleship" class="slide section level1">
+<h1>Battleship</h1>
+<ul>
+<li>For our battle ship / mine sweeper game</li>
+<li>We are going to define areas with ships in them</li>
+<li>The user must fire shots at specific coordinates</li>
+<li>When he hits a ship it gets revealed</li>
+<li>When he gets them all he wins</li>
+<li>Two ship types destroyers and cruisers</li>
+<li>Destroyers drawn as 'D'</li>
+<li>Cruiser drawn as 'C'</li>
+<li>Guesses drawn as 'X'</li>
+<li>'+' Drawn in the corners of the map</li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<div class="figure">
+<img src="ExampleBattleShipBoard.PNG" alt="Example battleship board" /><p class="caption">Example battleship board</p>
+</div>
+</div>
+<div id="defining-ships" class="slide section level1">
+<h1>Defining ships</h1>
+<ul>
+<li>A ship can be either a <code>Cruiser</code> or a <code>Destroyer</code></li>
+<li><code>Cruiser</code> is drawn as the character 'C'</li>
+<li><code>Destroyer</code> is drawn as the character 'D'</li>
+<li>Ships can be oriented <code>ShipVertical</code> or <code>ShipHorizontal</code></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">-- Type of ship</span>
+<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">ShipType</span> <span class="fu">=</span> <span class="dt">Cruiser</span> <span class="fu">|</span> <span class="dt">Destroyer</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- what character is produced by the ship type</span>
+<span class="ot">&gt;</span> <span class="kw">instance</span> <span class="dt">ProduceChar</span> <span class="dt">ShipType</span> <span class="kw">where</span>
+<span class="ot">&gt;</span>     produceChar <span class="dt">Cruiser</span> <span class="fu">=</span> <span class="ch">&#39;C&#39;</span>
+<span class="ot">&gt;</span>     produceChar <span class="dt">Destroyer</span> <span class="fu">=</span> <span class="ch">&#39;D&#39;</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- How is the ship oriented on the board</span>
+<span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">ShipOrientation</span> <span class="fu">=</span> <span class="dt">ShipVertical</span> <span class="fu">|</span> <span class="dt">ShipHorizontal</span> <span class="kw">deriving</span> (<span class="dt">Show</span>, <span class="dt">Eq</span>, <span class="dt">Ord</span>, <span class="dt">Bounded</span>)</code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>A <code>cruiser</code> is a square with a 'circle' at the one end (looks like an arrow)</li>
+<li>A <code>destroyer</code> is a thinner square with 'circle' at either ends</li>
+<li>Notice that we define the areas covered by ships using the <code>Monoid</code> append operator <code>&lt;&gt;</code> over <code>Fill</code> areas</li>
+<li>The resultant <code>Fill</code> types produce respective <code>ShipType</code> values for the areas where they are defined</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">-- Make a cruiser ship given an orientation and a centre</span>
+<span class="ot">&gt; cruiser ::</span> <span class="dt">ShipOrientation</span> <span class="ot">-&gt;</span> <span class="dt">CoordI</span> <span class="ot">-&gt;</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)
+<span class="ot">&gt;</span> cruiser o pos <span class="fu">=</span> <span class="kw">case</span> o <span class="kw">of</span>
+<span class="ot">&gt;</span>     <span class="dt">ShipVertical</span>    <span class="ot">-&gt;</span> fillRectangle t <span class="dv">2</span> <span class="dv">3</span> pos <span class="fu">&lt;&gt;</span> fillCircle t <span class="dv">2</span> (pos <span class="fu">|-|</span> coordI <span class="dv">0</span> <span class="dv">3</span>)
+<span class="ot">&gt;</span>     <span class="dt">ShipHorizontal</span>  <span class="ot">-&gt;</span> fillRectangle t <span class="dv">3</span> <span class="dv">2</span> pos <span class="fu">&lt;&gt;</span> fillCircle t <span class="dv">2</span> (pos <span class="fu">|-|</span> coordI <span class="dv">3</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>         t <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> <span class="dt">Just</span> <span class="fu">$</span> <span class="dt">Cruiser</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- Make a destroyer ship given an orientation and a centre</span>
+<span class="ot">&gt; destroyer ::</span> <span class="dt">ShipOrientation</span> <span class="ot">-&gt;</span> <span class="dt">CoordI</span> <span class="ot">-&gt;</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)
+<span class="ot">&gt;</span> destroyer o pos <span class="fu">=</span> <span class="kw">case</span> o <span class="kw">of</span>
+<span class="ot">&gt;</span>     <span class="dt">ShipVertical</span>    <span class="ot">-&gt;</span> fillRectangle t <span class="dv">1</span> <span class="dv">2</span> pos 
+<span class="ot">&gt;</span>                     <span class="fu">&lt;&gt;</span> fillCircle t <span class="dv">2</span> (pos <span class="fu">|-|</span> coordI <span class="dv">0</span> <span class="dv">3</span>) 
+<span class="ot">&gt;</span>                     <span class="fu">&lt;&gt;</span> fillCircle t <span class="dv">2</span> (pos <span class="fu">|+|</span> coordI <span class="dv">0</span> <span class="dv">3</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>     <span class="dt">ShipHorizontal</span>  <span class="ot">-&gt;</span> fillRectangle t <span class="dv">2</span> <span class="dv">1</span> pos 
+<span class="ot">&gt;</span>                     <span class="fu">&lt;&gt;</span> fillCircle t <span class="dv">2</span> (pos <span class="fu">|-|</span> coordI <span class="dv">3</span> <span class="dv">0</span>) 
+<span class="ot">&gt;</span>                     <span class="fu">&lt;&gt;</span> fillCircle t <span class="dv">2</span> (pos <span class="fu">|+|</span> coordI <span class="dv">3</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>         t <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> <span class="dt">Just</span> <span class="fu">$</span> <span class="dt">Destroyer</span></code></pre>
+</div>
+<div id="laying-out-the-board" class="slide section level1">
+<h1>Laying out the board</h1>
+<ul>
+<li>Given a board size and a list of ships
+<ul>
+<li>we want to arrange the ships so that they are inside the boards bounds</li>
+<li>and so that no two ships overlap</li>
+</ul></li>
+<li>It uses the bounds of different ships as well as query at which coordinates they are producing values</li>
+<li>Big ugly function with some bugs (enough said)</li>
+</ul>
+</div>
+<div class="slide section level1">
+
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; layoutBoard ::</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> <span class="dt">Int</span> <span class="ot">-&gt;</span> [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)] <span class="ot">-&gt;</span> [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)]
+<span class="ot">&gt;</span> layoutBoard _ _ [] <span class="fu">=</span> []
+<span class="ot">&gt;</span> layoutBoard w h ships <span class="fu">=</span> ships&#39;
+<span class="ot">&gt;</span>     <span class="kw">where</span>
+<span class="ot">&gt;</span>         ships&#39; <span class="fu">=</span> foldl findPlace [] shipsInBnds
+<span class="ot">&gt;</span>         shipsInBnds <span class="fu">=</span> map toBnds ships
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         toBnds s <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                     bnds  <span class="fu">=</span> fillBounds s 
+<span class="ot">&gt;</span>                     <span class="dt">Coord</span> (cx, cy) <span class="fu">=</span> boundsCentre bnds
+<span class="ot">&gt;</span>                     <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> bnds
+<span class="ot">&gt;</span>                     dx <span class="fu">=</span> <span class="kw">if</span> cx <span class="fu">&lt;</span> ex <span class="kw">then</span> ex <span class="fu">-</span> cx <span class="kw">else</span> (<span class="kw">if</span> cx <span class="fu">+</span> ex <span class="fu">&gt;</span> w <span class="kw">then</span> w <span class="fu">-</span> cx <span class="fu">-</span> ex  <span class="kw">else</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                     dy <span class="fu">=</span> <span class="kw">if</span> cy <span class="fu">&lt;</span> ey <span class="kw">then</span> ey <span class="fu">-</span> cy <span class="kw">else</span> (<span class="kw">if</span> cy <span class="fu">+</span> ey <span class="fu">&gt;</span> h <span class="kw">then</span> h <span class="fu">-</span> cy <span class="fu">-</span> ey  <span class="kw">else</span> <span class="dv">0</span>)
+<span class="ot">&gt;</span>                     <span class="kw">in</span> moveFill s (coordI dx dy)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         findPlace [] n <span class="fu">=</span> [n]
+<span class="ot">&gt;</span>         findPlace ps n <span class="fu">=</span> ps <span class="fu">&lt;&gt;</span> [offset (mconcat ps) n (coordI <span class="dv">0</span> <span class="dv">0</span>) <span class="dv">0</span>]
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         offset chk n o m <span class="fu">=</span> 
+<span class="ot">&gt;</span>                          <span class="kw">let</span> 
+<span class="ot">&gt;</span>                          n&#39; <span class="fu">=</span> <span class="kw">if</span> m <span class="fu">&gt;=</span> <span class="dv">2</span> <span class="fu">*</span> w <span class="fu">*</span> h <span class="kw">then</span> error <span class="st">&quot;fails&quot;</span> <span class="kw">else</span> moveFill n o 
+<span class="ot">&gt;</span>                          bnds <span class="fu">=</span> fillBounds n&#39;
+<span class="ot">&gt;</span>                          <span class="dt">Coord</span> (cx, cy) <span class="fu">=</span> boundsCentre bnds
+<span class="ot">&gt;</span>                          <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> bnds
+<span class="ot">&gt;</span>                          cs <span class="fu">=</span> [coordI x y <span class="fu">|</span> x <span class="ot">&lt;-</span> [(cx <span class="fu">-</span> ex) <span class="fu">..</span> (cx <span class="fu">+</span> ex)], y <span class="ot">&lt;-</span> [(cy <span class="fu">-</span> ey) <span class="fu">..</span> (cy <span class="fu">+</span> ey)]]
+<span class="ot">&gt;</span>                          <span class="kw">in</span> <span class="kw">if</span> isOk chk n&#39; cs 
+<span class="ot">&gt;</span>                             <span class="kw">then</span> n&#39;
+<span class="ot">&gt;</span>                             <span class="kw">else</span> offset chk n (incOff o) (m<span class="fu">+</span><span class="dv">1</span>)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         isOk chk n cs <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                         bnds  <span class="fu">=</span> fillBounds n
+<span class="ot">&gt;</span>                         <span class="dt">Coord</span> (cx, cy) <span class="fu">=</span> boundsCentre bnds
+<span class="ot">&gt;</span>                         <span class="dt">Coord</span> (ex, ey) <span class="fu">=</span> coordFromExtents <span class="fu">.</span> boundsExtent <span class="fu">$</span> bnds
+<span class="ot">&gt;</span>                         xOk <span class="fu">=</span> cx <span class="fu">&gt;=</span> ex <span class="fu">&amp;&amp;</span> cx <span class="fu">+</span> ex <span class="fu">&lt;=</span> w
+<span class="ot">&gt;</span>                         yOk <span class="fu">=</span> cy <span class="fu">&gt;=</span> ey <span class="fu">&amp;&amp;</span> cy <span class="fu">+</span> ey <span class="fu">&lt;=</span> h
+<span class="ot">&gt;</span>                         <span class="kw">in</span> xOk <span class="fu">&amp;&amp;</span> yOk <span class="fu">&amp;&amp;</span> (not <span class="fu">.</span> getAny <span class="fu">.</span> mconcat <span class="fu">.</span> map (<span class="dt">Any</span> <span class="fu">.</span> col chk n) <span class="fu">$</span> cs)
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         col chk n c <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                          a <span class="fu">=</span> getLast <span class="fu">.</span> queryFill chk <span class="fu">$</span> c
+<span class="ot">&gt;</span>                          b <span class="fu">=</span> getLast <span class="fu">.</span> queryFill n <span class="fu">$</span> c
+<span class="ot">&gt;</span>                          <span class="kw">in</span> <span class="kw">case</span> (a,b) <span class="kw">of</span>
+<span class="ot">&gt;</span>                             (<span class="dt">Just</span> _, <span class="dt">Just</span> _) <span class="ot">-&gt;</span> <span class="dt">True</span>
+<span class="ot">&gt;</span>                             _                <span class="ot">-&gt;</span> <span class="dt">False</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>         incOff (<span class="dt">Coord</span> (x,y)) <span class="fu">|</span> x <span class="fu">&gt;=</span> w <span class="fu">&amp;&amp;</span> y <span class="fu">&gt;=</span> h <span class="fu">=</span> <span class="dt">Coord</span> (<span class="dv">0</span>, <span class="dv">0</span>)
+<span class="ot">&gt;</span>                              <span class="fu">|</span> x <span class="fu">&gt;=</span> w           <span class="fu">=</span> <span class="dt">Coord</span> (<span class="dv">0</span>, y <span class="fu">+</span> <span class="dv">1</span>)
+<span class="ot">&gt;</span>                              <span class="fu">|</span> otherwise        <span class="fu">=</span> <span class="dt">Coord</span> (x <span class="fu">+</span> <span class="dv">1</span>, y)</code></pre>
+</div>
+<div id="making-a-random-board" class="slide section level1">
+<h1>Making a random board</h1>
+<ul>
+<li>We want to create a random layout of 5 ships</li>
+<li>We take a random number generator and return a modified generator along with the list of ships
+<ul>
+<li>Returning the modified generator allows repeated calls to generate different lists</li>
+</ul></li>
+<li>We use the <code>newtype</code> wrapper over lists <code>ZipList</code> which gives an alternate <code>Applicative</code> implementation for lists.
+<ul>
+<li>Combines list by zipping them together and not by combining all possible combinations of values</li>
+</ul></li>
+<li>Take note of <code>([destroyer, cruiser] !!)</code> where the list index operator is partially applied to a list of functions.
+<ul>
+<li>It is then mapped to a infinite random list of [0,1] values.</li>
+</ul></li>
+<li>Same trick used to generate infinite list of orientations</li>
+<li>We also have infinite lists of 'x' and 'y' coordinates</li>
+<li>We use <code>Applicative</code> to combine infinite lists of functions over infinite lists of values to give infinite list of resultant ships.</li>
+<li>But we only take 5 of the resulting values and return them.</li>
+<li>In the end we pass the list through <code>layoutBoard</code> to make sure its is a valid configuration.</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; randomBoard ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> (<span class="dt">StdGen</span>, [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)])
+<span class="ot">&gt;</span> randomBoard gen <span class="fu">=</span> 
+<span class="ot">&gt;</span>     <span class="kw">let</span> ship <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> map ([destroyer, cruiser] <span class="fu">!!</span>) <span class="fu">.</span> randomRs (<span class="dv">0</span>, <span class="dv">1</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>         orient <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> map ([<span class="dt">ShipVertical</span>,<span class="dt">ShipHorizontal</span>] <span class="fu">!!</span>) <span class="fu">.</span> randomRs (<span class="dv">0</span>, <span class="dv">1</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>         cxs <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> randomRs (<span class="dv">0</span>, <span class="dv">40</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>         cys <span class="fu">=</span> <span class="dt">ZipList</span> <span class="fu">.</span> randomRs (<span class="dv">0</span>, <span class="dv">40</span>) <span class="fu">$</span> gen
+<span class="ot">&gt;</span>     <span class="kw">in</span> ( mkStdGen <span class="fu">.</span> fst <span class="fu">.</span> random <span class="fu">$</span> gen
+<span class="ot">&gt;</span>        , layoutBoard <span class="dv">40</span> <span class="dv">40</span> <span class="fu">.</span> take <span class="dv">5</span> <span class="fu">.</span> getZipList <span class="fu">$</span> ship <span class="fu">&lt;*&gt;</span> orient <span class="fu">&lt;*&gt;</span> (coordI <span class="fu">&lt;$&gt;</span> cxs <span class="fu">&lt;*&gt;</span> cys)
+<span class="ot">&gt;</span>        )</code></pre>
+</div>
+<div id="managing-the-game" class="slide section level1">
+<h1>Managing the game</h1>
+<ul>
+<li>Now that we can define ships and draw them we need to manage the flow of our game</li>
+<li>We will do that by passing around <code>Game</code> state value between different IO actions</li>
+<li>We keep track of alive ships and have a board on which we draw the guesses as well as dead ships</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">data</span> <span class="dt">Game</span> <span class="fu">=</span> <span class="dt">Game</span> {<span class="ot"> ships     ::</span> [<span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>)] <span class="co">-- the alive ships</span>
+<span class="ot">&gt;</span>                  ,<span class="ot"> board     ::</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">Char</span>)       <span class="co">-- the board showing choices and dead ships</span>
+<span class="ot">&gt;</span>                  }
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- Helper that maps a ship to characters</span>
+<span class="ot">&gt; shipToBrd ::</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">ShipType</span>) <span class="ot">-&gt;</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">Char</span>)
+<span class="ot">&gt;</span> shipToBrd s <span class="fu">=</span> <span class="dt">Last</span> <span class="fu">.</span> (fmap produceChar) <span class="fu">.</span> getLast <span class="fu">&lt;$&gt;</span> s
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- Helper action that draws the game board for us</span>
+<span class="ot">&gt; drawBrd ::</span> <span class="dt">Fill</span> <span class="dt">Int</span> (<span class="dt">Last</span> <span class="dt">Char</span>) <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> drawBrd <span class="fu">=</span> drawFillMatrix <span class="dv">40</span> <span class="dv">40</span>  </code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>We creating a new game we use <code>Applicitive</code> again</li>
+<li><code>(coordI &lt;$&gt; [0,40] &lt;*&gt; [0,40])</code> applies <code>coordI</code> to all the possible combinations of corner coordinates</li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- Action starting a new game</span>
+<span class="ot">&gt; playNewGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> playNewGame gen <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>                   <span class="co">-- we generate a random board</span>
+<span class="ot">&gt;</span>                   (gen&#39;, ships) <span class="fu">=</span> randomBoard gen
+<span class="ot">&gt;</span>                   <span class="co">-- draw the border &#39;+&#39; characters using the normal Applicative instance for list</span>
+<span class="ot">&gt;</span>                   <span class="co">-- to get all the corner combinations</span>
+<span class="ot">&gt;</span>                   border <span class="fu">=</span> mconcat <span class="fu">$</span> map (fillRectangle (lastChar <span class="ch">&#39;+&#39;</span>) <span class="dv">1</span> <span class="dv">1</span>) (coordI <span class="fu">&lt;$&gt;</span> [<span class="dv">0</span>,<span class="dv">40</span>] <span class="fu">&lt;*&gt;</span> [<span class="dv">0</span>,<span class="dv">40</span>]) 
+<span class="ot">&gt;</span>                   <span class="co">-- and then we start the game</span>
+<span class="ot">&gt;</span>                   <span class="kw">in</span> playGame gen&#39; (<span class="dt">Game</span> ships border)</code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>When we cheat in a game we momentarily show everything.
+<ul>
+<li>We use the <code>Monoid</code> append operator <code>&lt;&gt;</code> to combined the current <code>board</code></li>
+<li>with the list of <code>ships</code> flattened to a displayable <code>Fill</code> using</li>
+<li><code>mconcat</code> which flattens a list using <code>Monoid</code></li>
+</ul></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="co">-- when we chose to cheat we show the board with all the ships on it and then continue playing</span>
+<span class="ot">&gt; cheatGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> cheatGame gen g <span class="fu">=</span> drawBrd (board g <span class="fu">&lt;&gt;</span> (mconcat <span class="fu">.</span> map shipToBrd <span class="fu">.</span> ships <span class="fu">$</span> g)) <span class="fu">&gt;&gt;</span> playGame gen g
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="co">-- when we win the game we can choice to play a new one</span>
+<span class="ot">&gt; wonGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> () 
+<span class="ot">&gt;</span> wonGame gen <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;You won the game. Play another ? &#39;y&#39;/&#39;n&#39;&quot;</span>
+<span class="ot">&gt;</span>     t <span class="ot">&lt;-</span> getLine
+<span class="ot">&gt;</span>     <span class="kw">case</span> filter (not <span class="fu">.</span> isSpace) t <span class="kw">of</span>
+<span class="ot">&gt;</span>         <span class="ch">&#39;y&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;Y&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;n&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         <span class="ch">&#39;N&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         _       <span class="ot">-&gt;</span> wonGame gen</code></pre>
+</div>
+<div class="slide section level1">
+
+<ul>
+<li>When we take a shot we again use <code>Monoid</code> append operator <code>&lt;&gt;</code> to update the board
+<ul>
+<li>We include the location of our guess using 'X'</li>
+<li>and we also include the locations of all the hit ships.</li>
+<li>The list of hit ships is collapsed into a single <code>Fill</code> using <code>Monoid</code></li>
+</ul></li>
+</ul>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; takeShot ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> takeShot t gen g <span class="fu">=</span> <span class="kw">let</span> 
+<span class="ot">&gt;</span>     r <span class="fu">:</span> c <span class="fu">:</span> _ <span class="fu">=</span> map (read) (words t)
+<span class="ot">&gt;</span>     <span class="co">-- The board is updated</span>
+<span class="ot">&gt;</span>     b <span class="fu">=</span> board g 
+<span class="ot">&gt;</span>         <span class="co">-- With an &#39;X&#39; showing where we guessed</span>
+<span class="ot">&gt;</span>         <span class="fu">&lt;&gt;</span> fillRectangle (lastChar <span class="ch">&#39;X&#39;</span>) <span class="dv">1</span> <span class="dv">1</span> (coordI r c) 
+<span class="ot">&gt;</span>         <span class="co">-- And the display of all the ships which were hit</span>
+<span class="ot">&gt;</span>         <span class="fu">&lt;&gt;</span> (mconcat <span class="fu">.</span> map shipToBrd <span class="fu">$</span> hit)
+<span class="ot">&gt;</span>     <span class="co">-- Hit ships are those which produce at the coordinate</span>
+<span class="ot">&gt;</span>     produces <span class="fu">=</span> isJust <span class="fu">.</span> getLast <span class="fu">.</span> (\q <span class="ot">-&gt;</span> q (coordI r c)) <span class="fu">.</span> queryFill
+<span class="ot">&gt;</span>     hit <span class="fu">=</span> filter produces (ships g)
+<span class="ot">&gt;</span>     <span class="co">-- Missed ships are those which do not produce at the coordinate</span>
+<span class="ot">&gt;</span>     miss <span class="fu">=</span> filter (not <span class="fu">.</span> produces) (ships g)
+<span class="ot">&gt;</span>     <span class="co">-- The new game state is all the missed ships and the updated board</span>
+<span class="ot">&gt;</span>     <span class="kw">in</span> playGame gen (<span class="dt">Game</span> miss b)</code></pre>
+</div>
+<div class="slide section level1">
+
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; playGame ::</span> <span class="dt">StdGen</span> <span class="ot">-&gt;</span> <span class="dt">Game</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> playGame gen g <span class="fu">=</span> <span class="kw">if</span> win g <span class="kw">then</span> wonGame gen <span class="kw">else</span> <span class="kw">do</span> 
+<span class="ot">&gt;</span>     drawBrd <span class="fu">.</span> board <span class="fu">$</span> g    
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;Guess r c / Cheat &#39;c&#39; / New Game &#39;n&#39; / Quit &#39;q&#39;&quot;</span>
+<span class="ot">&gt;</span>     t <span class="ot">&lt;-</span> getLine
+<span class="ot">&gt;</span>     <span class="kw">case</span> filter (not <span class="fu">.</span> isSpace) t <span class="kw">of</span>
+<span class="ot">&gt;</span>         <span class="ch">&#39;c&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> cheatGame gen g
+<span class="ot">&gt;</span>         <span class="ch">&#39;C&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> cheatGame gen g
+<span class="ot">&gt;</span>         <span class="ch">&#39;n&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;N&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> playNewGame gen
+<span class="ot">&gt;</span>         <span class="ch">&#39;Q&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         <span class="ch">&#39;q&#39;</span> <span class="fu">:</span> _ <span class="ot">-&gt;</span> return ()
+<span class="ot">&gt;</span>         _       <span class="ot">-&gt;</span> takeShot t gen g
+<span class="ot">&gt;</span>     <span class="kw">where</span> 
+<span class="ot">&gt;</span>        win (<span class="dt">Game</span> [] _) <span class="fu">=</span> <span class="dt">True</span>
+<span class="ot">&gt;</span>        win _ <span class="fu">=</span> <span class="dt">False</span></code></pre>
+</div>
+<div id="main-function-entry-point" class="slide section level1">
+<h1>Main function entry point</h1>
+<pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; main ::</span> <span class="dt">IO</span> ()
+<span class="ot">&gt;</span> main <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>     putStrLn <span class="st">&quot;An exmaple picture&quot;</span>
+<span class="ot">&gt;</span>     myPicture
+<span class="ot">&gt;</span>     _ <span class="ot">&lt;-</span> putStrLn <span class="st">&quot;enter any text to continue &quot;</span> <span class="fu">&gt;&gt;</span> getLine
+<span class="ot">&gt;</span>     gen0 <span class="ot">&lt;-</span> getStdGen
+<span class="ot">&gt;</span>     playNewGame gen0
+<span class="ot">&gt;</span>     return ()</code></pre>
+</div>
+</body>
+</html>
